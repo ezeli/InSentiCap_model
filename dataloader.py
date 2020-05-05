@@ -1,0 +1,294 @@
+# coding:utf8
+import torch
+from torch.utils import data
+import numpy as np
+
+
+def create_collate_fn(name, pad_index=0, max_sql_len=21, num_concepts=10,
+                      num_sentiments=5):
+    def caption_collate_fn(dataset):
+        tmp = []
+        for fn, fc_feat, att_feat, caps_idx, cpts_idx in dataset:
+            for cap in caps_idx:
+                tmp.append([fn, fc_feat, att_feat, cap, cpts_idx])
+        dataset = tmp
+        dataset.sort(key=lambda p: len(p[3]), reverse=True)
+        fns, fc_feats, att_feats, caps, cpts = zip(*dataset)
+        fc_feats = torch.FloatTensor(np.array(fc_feats))
+        att_feats = torch.FloatTensor(np.array(att_feats))
+
+        lengths = [min(len(c), max_sql_len) for c in caps]
+        caps_tensor = torch.LongTensor(len(caps), lengths[0]).fill_(pad_index)
+        for i, c in enumerate(caps):
+            end = lengths[i]
+            caps_tensor[i, :end] = torch.LongTensor(c[:end])
+        lengths = [l-1 for l in lengths]
+
+        cpts_tensor = torch.LongTensor(len(cpts), num_concepts).fill_(pad_index)
+        for i, c in enumerate(cpts):
+            end = min(len(c), num_concepts)
+            cpts_tensor[i, :end] = torch.LongTensor(c[:end])
+
+        return fns, fc_feats, att_feats, (caps_tensor, lengths), cpts_tensor
+
+    def iter_fact_collate_fn(dataset):
+        fns, fc_feats, att_feats, cpts, sentis = zip(*dataset)
+        fc_feats = torch.FloatTensor(np.array(fc_feats))
+        att_feats = torch.FloatTensor(np.array(att_feats))
+
+        cpts_tensor = torch.LongTensor(len(cpts), num_concepts).fill_(pad_index)
+        for i, c in enumerate(cpts):
+            end = min(len(c), num_concepts)
+            cpts_tensor[i, :end] = torch.LongTensor(c[:end])
+
+        sentis_tensor = torch.LongTensor(len(sentis), num_sentiments).fill_(pad_index)
+        for i, s in enumerate(sentis):
+            end = min(len(s), num_sentiments)
+            sentis_tensor[i, :end] = torch.LongTensor(s[:end])
+
+        return fns, fc_feats, att_feats, cpts_tensor, sentis_tensor
+
+    def iter_senti_collate_fn(dataset):
+        fns, fc_feats, att_feats, cpts, sentis, senti_labels = zip(*dataset)
+        fc_feats = torch.FloatTensor(np.array(fc_feats))
+        att_feats = torch.FloatTensor(np.array(att_feats))
+        senti_labels = torch.LongTensor(np.array(senti_labels))
+
+        cpts_tensor = torch.LongTensor(len(cpts), num_concepts).fill_(pad_index)
+        for i, c in enumerate(cpts):
+            end = min(len(c), num_concepts)
+            cpts_tensor[i, :end] = torch.LongTensor(c[:end])
+
+        sentis_tensor = torch.LongTensor(len(sentis), num_sentiments).fill_(pad_index)
+        for i, s in enumerate(sentis):
+            end = min(len(s), num_sentiments)
+            sentis_tensor[i, :end] = torch.LongTensor(s[:end])
+
+        return fns, fc_feats, att_feats, cpts_tensor, sentis_tensor, senti_labels
+
+    def concept_collate_fn(dataset):
+        fns, fc_feats, cpts = zip(*dataset)
+        fc_feats = torch.FloatTensor(np.array(fc_feats))
+        cpts_tensors = torch.LongTensor(np.array(cpts))
+        return fns, fc_feats, cpts_tensors
+
+    def senti_image_collate_fn(dataset):
+        fns, att_feats, labels = zip(*dataset)
+        att_feats = torch.FloatTensor(np.array(att_feats))
+        labels = torch.LongTensor(np.array(labels))
+        return fns, att_feats, labels
+
+    if name == 'caption':
+        return caption_collate_fn
+    elif name == 'concept':
+        return concept_collate_fn
+    elif name == 'senti_image':
+        return senti_image_collate_fn
+    elif name == 'iter_fact':
+        return iter_fact_collate_fn
+    elif name == 'iter_senti':
+        return iter_senti_collate_fn
+
+
+class CaptionDataset(data.Dataset):
+    def __init__(self, fc_feats, att_feats, img_captions, img_det_concepts, idx2word):
+        self.fc_feats = fc_feats
+        self.att_feats = att_feats
+        self.captions = list(img_captions.items())  # [(fn, [['a', 'b'],['a', 'b'],...]),...]
+        self.det_concepts = img_det_concepts  # {fn: ['a','b',...])}
+        self.word2idx = {}
+        for i, w in enumerate(idx2word):
+            self.word2idx[w] = i
+
+    def __getitem__(self, index):
+        fn, caps = self.captions[index]
+        fc_feat = self.fc_feats[fn][:]
+        att_feat = self.att_feats[fn][:]
+        cpts = self.det_concepts[fn]
+        caps_idx = []
+        for cap in caps:
+            caps_idx.append([self.word2idx['<SOS>']]
+                            + [self.word2idx.get(w, None) or self.word2idx['<UNK>']
+                               for w in cap]
+                            + [self.word2idx['<EOS>']])
+        cpts_idx = [self.word2idx[w] for w in cpts]
+        return fn, np.array(fc_feat), np.array(att_feat), caps_idx, cpts_idx
+
+    def __len__(self):
+        return len(self.captions)
+
+
+class IterFactDataset(data.Dataset):
+    def __init__(self, fc_feats, att_feats, img_det_concepts,
+                 img_det_sentiments, idx2word, fns):
+        self.fc_feats = fc_feats
+        self.att_feats = att_feats
+        self.det_concepts = img_det_concepts  # {fn: ['a','b',...])}
+        self.det_sentiments = img_det_sentiments  # {fn: ['a','b',...])}
+        self.word2idx = {}
+        for i, w in enumerate(idx2word):
+            self.word2idx[w] = i
+        self.fns = list(fns)
+
+    def __getitem__(self, index):
+        fn = self.fns[index]
+        fc_feat = self.fc_feats[fn][:]
+        att_feat = self.att_feats[fn][:]
+        cpts = self.det_concepts[fn]
+        sentis = self.det_sentiments[fn]
+        cpts_idx = [self.word2idx.get(w, None) or self.word2idx['<UNK>']
+                    for w in cpts]
+        sentis_idx = [self.word2idx.get(w, None) or self.word2idx['<UNK>']
+                      for w in sentis]
+        return fn, np.array(fc_feat), np.array(att_feat), cpts_idx, sentis_idx
+
+    def __len__(self):
+        return len(self.fns)
+
+
+class IterSentiDataset(data.Dataset):
+    def __init__(self, fc_feats, att_feats, img_det_concepts,
+                 img_det_sentiments, idx2word,
+                 img_senti_labels, sentiment_categories):
+        self.fc_feats = fc_feats
+        self.att_feats = att_feats
+        self.det_concepts = img_det_concepts  # {fn: ['a','b',...])}
+        self.det_sentiments = img_det_sentiments  # {fn: ['a','b',...])}
+        self.word2idx = {}
+        for i, w in enumerate(idx2word):
+            self.word2idx[w] = i
+        self.img_senti_labels = img_senti_labels  # [(fn, senti_label),...]
+        self.senti_label2idx = {}
+        if sentiment_categories:
+            for i, w in enumerate(sentiment_categories):
+                self.senti_label2idx[w] = i
+
+    def __getitem__(self, index):
+        fn, senti_label = self.img_senti_labels[index]
+        fc_feat = self.fc_feats[fn][:]
+        att_feat = self.att_feats[fn][:]
+        cpts = self.det_concepts[fn]
+        sentis = self.det_sentiments[fn]
+        cpts_idx = [self.word2idx.get(w, None) or self.word2idx['<UNK>']
+                    for w in cpts]
+        sentis_idx = [self.word2idx.get(w, None) or self.word2idx['<UNK>']
+                      for w in sentis]
+        senti_label = self.senti_label2idx[senti_label]
+        return fn, np.array(fc_feat), np.array(att_feat), cpts_idx, sentis_idx, senti_label
+
+    def __len__(self):
+        return len(self.img_senti_labels)
+
+
+class ConceptDataset(data.Dataset):
+    def __init__(self, fc_feats, img_concepts, idx2concept):
+        self.fc_feats = fc_feats
+        self.concepts = list(img_concepts.items())
+        self.concept2idx = {}
+        for i, w in enumerate(idx2concept):
+            self.concept2idx[w] = i
+        self.num_cpts = len(idx2concept)
+
+    def __getitem__(self, index):
+        fn, cpts = self.concepts[index]
+        fc_feat = self.fc_feats[fn][:]
+        cpts_idx = [self.concept2idx[cpt]
+                    for cpt in cpts if cpt in self.concept2idx]
+        cpts = np.zeros(self.num_cpts, dtype=np.int16)
+        cpts[cpts_idx] = 1
+        return fn, np.array(fc_feat), cpts
+
+    def __len__(self):
+        return len(self.concepts)
+
+
+class SentiImageDataset(data.Dataset):
+    def __init__(self, senti_att_feats, img_senti_labels, sentiment_categories):
+        self.att_feats = senti_att_feats
+        self.img_senti_labels = img_senti_labels  # [(fn, senti_label),...]
+        self.senti_label2idx = {}
+        for i, w in enumerate(sentiment_categories):
+            self.senti_label2idx[w] = i
+
+    def __getitem__(self, index):
+        fn, senti_label = self.img_senti_labels[index]
+        att_feat = self.att_feats[fn][:]
+        senti_idx = self.senti_label2idx[senti_label]
+        return fn, np.array(att_feat), senti_idx
+
+    def __len__(self):
+        return len(self.img_senti_labels)
+
+
+def get_caption_dataloader(fc_feats, att_feats, img_captions, img_det_concepts,
+                           idx2word, pad_index, max_sql_len, num_concepts,
+                           batch_size, num_workers=0, shuffle=True):
+    dataset = CaptionDataset(fc_feats, att_feats, img_captions, img_det_concepts, idx2word)
+    dataloader = data.DataLoader(dataset,
+                                 batch_size=batch_size,
+                                 shuffle=shuffle,
+                                 num_workers=num_workers,
+                                 collate_fn=create_collate_fn(
+                                     'caption', pad_index, max_sql_len,
+                                     num_concepts))
+    return dataloader
+
+
+def get_iter_fact_dataloader(fc_feats, att_feats, img_det_concepts,
+                             img_det_sentiments, idx2word, fns,
+                             pad_index, num_concepts, num_sentiments,
+                             batch_size, num_workers=0, shuffle=True):
+    dataset = IterFactDataset(fc_feats, att_feats, img_det_concepts,
+                              img_det_sentiments, idx2word, fns)
+    dataloader = data.DataLoader(dataset,
+                                 batch_size=batch_size,
+                                 shuffle=shuffle,
+                                 num_workers=num_workers,
+                                 collate_fn=create_collate_fn(
+                                     'iter_fact', pad_index=pad_index,
+                                     num_concepts=num_concepts,
+                                     num_sentiments=num_sentiments))
+    return dataloader
+
+
+def get_iter_senti_dataloader(fc_feats, att_feats, img_det_concepts,
+                              img_det_sentiments, idx2word, img_senti_labels,
+                              sentiment_categories, pad_index,
+                              num_concepts, num_sentiments, batch_size,
+                              num_workers=0, shuffle=True):
+    dataset = IterSentiDataset(fc_feats, att_feats, img_det_concepts,
+                               img_det_sentiments, idx2word,
+                               img_senti_labels, sentiment_categories)
+    dataloader = data.DataLoader(dataset,
+                                 batch_size=batch_size,
+                                 shuffle=shuffle,
+                                 num_workers=num_workers,
+                                 collate_fn=create_collate_fn(
+                                     'iter_senti', pad_index=pad_index,
+                                     num_concepts=num_concepts,
+                                     num_sentiments=num_sentiments))
+    return dataloader
+
+
+def get_concept_dataloader(fc_feats, img_concepts, idx2concept,
+                           batch_size, num_workers=0, shuffle=True):
+    dataset = ConceptDataset(fc_feats, img_concepts, idx2concept)
+    dataloader = data.DataLoader(dataset,
+                                 batch_size=batch_size,
+                                 shuffle=shuffle,
+                                 num_workers=num_workers,
+                                 collate_fn=create_collate_fn('concept'))
+    return dataloader
+
+
+def get_senti_image_dataloader(senti_att_feats, img_senti_labels,
+                               sentiment_categories,
+                               batch_size, num_workers=0, shuffle=True):
+    dataset = SentiImageDataset(senti_att_feats, img_senti_labels,
+                                sentiment_categories)
+    dataloader = data.DataLoader(dataset,
+                                 batch_size=batch_size,
+                                 shuffle=shuffle,
+                                 num_workers=num_workers,
+                                 collate_fn=create_collate_fn('senti_image'))
+    return dataloader
