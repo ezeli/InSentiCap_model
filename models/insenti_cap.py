@@ -17,7 +17,7 @@ class InSentiCap(nn.Module):
                  hyperparams, real_captions, settings):
         super(InSentiCap, self).__init__()
         self.idx2word = idx2word
-        self.pad_id = self.word2idx['<PAD>']
+        self.pad_id = idx2word.index('<PAD>')
         self.max_seq_length = max_seq_length
 
         self.captioner = Captioner(idx2word, settings)
@@ -58,7 +58,7 @@ class InSentiCap(nn.Module):
     def forward(self, data, data_type, training):
         self.train(training)
         all_losses = torch.FloatTensor(5).fill_(0)
-        device = next(self.parameters()).dtype
+        device = next(self.parameters()).device
         for data_item in tqdm.tqdm(data):
             if data_type == 'fact':
                 _, fc_feats, att_feats, cpts_tensor, sentis_tensor = data_item
@@ -123,7 +123,7 @@ class InSentiCap(nn.Module):
             c_real_out = self.classifier(real_caps)  # [bs, num_senti]
             c_real_loss = self.cls_crit(c_real_out, real_senti_labels)
             c_fake_out = self.classifier(cap_out)
-            c_fake_loss = self.c_crit(c_fake_out, senti_labels)
+            c_fake_loss = self.cls_crit(c_fake_out, senti_labels)
             c_loss = c_real_loss + c_fake_loss
 
             t_out = self.translator(cap_out, senti_labels)  # [bs, fc_feat_dim]

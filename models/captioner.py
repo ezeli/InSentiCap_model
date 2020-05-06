@@ -180,7 +180,7 @@ class Captioner(nn.Module):
         p_cpt_feats = self.cpt2att(cpt_feats)  # [bs, num_cpts, att_hid]
         state = self.init_hidden(batch_size)
 
-        we_weight = self.word_embed[0].weight  # [vocab, word_dim]
+        we_weight = self.word_embed[0].weight[1:, :]  # [vocab-1, word_dim] rm <PAD>
         for i in range(lengths[0]):
             if self.training and i >= 1 and ss_prob > 0.0:  # otherwise no need to sample
                 sample_prob = fc_feats.new(batch_size).uniform_(0, 1)
@@ -193,7 +193,7 @@ class Captioner(nn.Module):
                     it = captions[:, i].clone()  # bs
                     word_embs = self.word_embed(it)  # [bs, word_emb]
                     prob_prev = outputs[-1].detach().softmax(dim=-1)  # [bs, vocab_size], fetch prev distribution
-                    prob_prev = prob_prev.mm(we_weight)  # [bs, word_dim]
+                    prob_prev = prob_prev[:, 1:].mm(we_weight)  # [bs, word_dim]
                     word_embs.index_copy_(0, sample_ind, prob_prev.index_select(0, sample_ind))
                     # it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
             else:
@@ -229,7 +229,7 @@ class Captioner(nn.Module):
         state = self.init_hidden(batch_size)
         it = concepts.new_zeros(batch_size).fill_(self.sos_id)
         word_embs = self.word_embed(it)  # [bs, word_dim]
-        we_weight = self.word_embed[0].weight  # [vocab, word_dim]
+        we_weight = self.word_embed[0].weight[1:, :]  # [vocab-1, word_dim]
         unfinishs = []
         for i in range(max_seq_length):
             output, state = self.forward_step(word_embs, fc_feats, att_feats, cpt_feats,
@@ -240,7 +240,7 @@ class Captioner(nn.Module):
             # TODO: select max value
             # it = output.argmax(-1)  # bs
             # word_embs = self.word_embed(it)  # [bs, word_dim]
-            out = output.mm(we_weight)  # [bs, word_dim]
+            out = output[:, 1:].mm(we_weight)  # [bs, word_dim]
             it = output.argmax(-1)  # bs
             if i == 0:
                 unfinished = it != self.eos_id
@@ -250,7 +250,7 @@ class Captioner(nn.Module):
             #     break
             unfinishs.append(unfinished)
             if unfinished.sum() != batch_size:
-                end_idx = (not unfinished).nonzero().view(-1)
+                end_idx = (~unfinished).nonzero().view(-1)
                 out.index_copy_(0, end_idx, out.new_zeros(end_idx.size(0), out.size(1)))
             outputs.append(out)  # output do not contain eos, replace with 0
             word_embs = out.detach()

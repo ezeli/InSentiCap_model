@@ -36,21 +36,21 @@ def train():
 
     fact_train_data = get_iter_fact_dataloader(
         f_fc, f_att, img_det_concepts, img_det_sentiments, idx2word,
-        img_captions['train'].keys(), idx2word.index['<PAD>'],
+        img_captions['train'].keys(), idx2word.index('<PAD>'),
         opt.num_concepts, opt.num_sentiments, opt.iter_bs)
     fact_val_data = get_iter_fact_dataloader(
         f_fc, f_att, img_det_concepts, img_det_sentiments, idx2word,
-        img_captions['val'].keys(), idx2word.index['<PAD>'],
+        img_captions['val'].keys(), idx2word.index('<PAD>'),
         opt.num_concepts, opt.num_sentiments, opt.iter_bs, shuffle=False)
     del img_captions
 
     senti_train_data = get_iter_senti_dataloader(
         f_senti_fc, f_senti_att, img_det_concepts, img_det_sentiments, idx2word,
-        img_senti_labels['train'], opt.sentiment_categories, idx2word.index['<PAD>'],
+        img_senti_labels['train'], opt.sentiment_categories, idx2word.index('<PAD>'),
         opt.num_concepts, opt.num_sentiments, opt.iter_bs)
     senti_val_data = get_iter_senti_dataloader(
         f_senti_fc, f_senti_att, img_det_concepts, img_det_sentiments, idx2word,
-        img_senti_labels['val'], opt.sentiment_categories, idx2word.index['<PAD>'],
+        img_senti_labels['val'], opt.sentiment_categories, idx2word.index('<PAD>'),
         opt.num_concepts, opt.num_sentiments, opt.iter_bs, shuffle=False)
 
     word2idx = {}
@@ -69,7 +69,7 @@ def train():
     real_captions = real_captions_tmp
 
     in_senti_cap = InSentiCap(
-        idx2word, opt.max_seq_length, opt.sentiment_categories, opt.iter_lrs,
+        idx2word, opt.max_sql_len, opt.sentiment_categories, opt.iter_lrs,
         opt.iter_hyperparams, real_captions, opt.settings)
     in_senti_cap.to(opt.device)
 

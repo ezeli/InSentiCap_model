@@ -43,7 +43,7 @@ def parse_opt():
     parser.add_argument('--iter_bs', type=int, default=80)
     parser.add_argument('--iter_resume', type=str, default='')
     parser.add_argument('--iter_xe_resume', type=str, default='')
-    parser.add_argument('--iter_epochs', type=int, default=10)
+    parser.add_argument('--iter_epochs', type=int, default=30)
     parser.add_argument('--iter_fact_times', type=int, default=1)
     parser.add_argument('--iter_senti_times', type=int, default=2)
 

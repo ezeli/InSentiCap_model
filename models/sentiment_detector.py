@@ -9,10 +9,10 @@ class SentimentDetector(nn.Module):
 
         self.convs = nn.Sequential()
         in_channels = settings['fc_feat_dim']
-        for i in settings['sentiment_convs_num']:
+        for i in range(settings['sentiment_convs_num']):
             self.convs.add_module(
-                'conv_%d' % i, nn.Conv2d(in_channels, in_channels / 2, 3, padding=1))
-            in_channels /= 2
+                'conv_%d' % i, nn.Conv2d(in_channels, in_channels // 2, 3, padding=1))
+            in_channels //= 2
         self.convs.add_module('dropout', nn.Dropout(settings['dropout_p']))
         self.convs.add_module('relu', nn.ReLU())
 
