@@ -136,10 +136,8 @@ class IterFactDataset(data.Dataset):
         att_feat = self.att_feats[fn][:]
         cpts = self.det_concepts[fn]
         sentis = self.det_sentiments[fn]
-        cpts_idx = [self.word2idx.get(w, None) or self.word2idx['<UNK>']
-                    for w in cpts]
-        sentis_idx = [self.word2idx.get(w, None) or self.word2idx['<UNK>']
-                      for w in sentis]
+        cpts_idx = [self.word2idx[w] for w in cpts]
+        sentis_idx = [self.word2idx[w] for w in sentis]
         return fn, np.array(fc_feat), np.array(att_feat), cpts_idx, sentis_idx
 
     def __len__(self):
@@ -169,10 +167,8 @@ class IterSentiDataset(data.Dataset):
         att_feat = self.att_feats[fn][:]
         cpts = self.det_concepts[fn]
         sentis = self.det_sentiments[fn]
-        cpts_idx = [self.word2idx.get(w, None) or self.word2idx['<UNK>']
-                    for w in cpts]
-        sentis_idx = [self.word2idx.get(w, None) or self.word2idx['<UNK>']
-                      for w in sentis]
+        cpts_idx = [self.word2idx[w] for w in cpts]
+        sentis_idx = [self.word2idx[w] for w in sentis]
         senti_label = self.senti_label2idx[senti_label]
         return fn, np.array(fc_feat), np.array(att_feat), cpts_idx, sentis_idx, senti_label
 

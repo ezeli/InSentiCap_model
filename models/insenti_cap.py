@@ -17,6 +17,7 @@ class InSentiCap(nn.Module):
                  hyperparams, real_captions, settings):
         super(InSentiCap, self).__init__()
         self.idx2word = idx2word
+        self.pad_id = self.word2idx['<PAD>']
         self.max_seq_length = max_seq_length
 
         self.captioner = Captioner(idx2word, settings)
@@ -38,17 +39,21 @@ class InSentiCap(nn.Module):
         self.real_captions = real_captions  # {'fact': [[2,44,...],...], 'senti': [(0, [2, 44]),..]}
 
     def get_batch_real_caps(self, caps_type, batch_size, max_len):
-        batch_caps = random.sample(self.real_captions, batch_size)
-        sentis, caps = zip(*batch_caps)
-        sentis = torch.LongTensor(sentis).to(self.device)
+        device = next(self.parameters()).device
+        caps = random.sample(self.real_captions[caps_type], batch_size)
+        if caps_type == 'senti':
+            sentis, caps = zip(*caps)
 
-        cap_tensor = torch.LongTensor(len(caps), max_len).to(self.device).fill_(self.pad_id)
+        cap_tensor = torch.LongTensor(len(caps), max_len).to(device).fill_(self.pad_id)
         for i, c in enumerate(caps):
-            end_cap = min(max_len, len(c)-1)
-            cap_tensor[i, :end_cap] = torch.LongTensor(c[1:end_cap+1])  # 去掉<SOS>
-
-        cap_tensor = self.word_embed(cap_tensor)  # [bs, max_len, word_dim]
-        return cap_tensor, sentis
+            end_cap = min(max_len, len(c))
+            cap_tensor[i, :end_cap] = torch.LongTensor(c[:end_cap])
+        cap_tensor = self.captioner.word_embed(cap_tensor)  # [bs, max_len, word_dim]
+        if caps_type == 'senti':
+            sentis = torch.LongTensor(sentis).to(device)
+            return cap_tensor, sentis
+        else:
+            return cap_tensor, None
 
     def forward(self, data, data_type, training):
         self.train(training)

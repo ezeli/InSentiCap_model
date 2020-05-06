@@ -139,8 +139,8 @@ def process_senti_corpus():
                     for noun in nouns:
                         sentiment_detector[noun].update(adjs)
 
-    json.dump(tmp_senti_corpus, open(opt.tmp_senti_corpus, 'w'))
-    json.dump(tmp_senti_corpus_pos, open(opt.tmp_senti_corpus_pos, 'w'))
+    # json.dump(tmp_senti_corpus, open(opt.tmp_senti_corpus, 'w'))
+    # json.dump(tmp_senti_corpus_pos, open(opt.tmp_senti_corpus_pos, 'w'))
 
     all_sentis = all_sentis.most_common()[:1000]
     sentis = {k: v.most_common() for k, v in sentis.items()}
@@ -180,6 +180,12 @@ def process_senti_corpus():
             sentiment_words[k] = v
         else:
             sentiment_words[k] = v if v > sentiment_words[k] else sentiment_words[k]
+
+    for k in sentis_result:
+        sentis_result[k] = list(sentis_result[k].items())
+        sentis_result[k].sort(key=lambda p: p[1], reverse=True)
+        sentis_result[k] = [w[0] for w in sentis_result[k][:250]]
+    json.dump(sentis_result, open(opt.sentiment_words, 'w'))
 
     tmp_sentiment_detector = defaultdict(list)
     for noun, senti_words in sentiment_detector.items():
@@ -273,6 +279,48 @@ def get_img_det_sentiments():
     json.dump(det_sentiments, open(opt.img_det_sentiments, 'w'))
 
 
+def get_real_captions():
+    senti_corpus = json.load(open(opt.tmp_senti_corpus, 'r'))
+    img_captions = json.load(open(opt.img_captions, 'r'))['train']
+    sentiment_words = json.load(open(opt.sentiment_words, 'r'))
+    real_captions = {'fact': [], 'senti': []}
+
+    caps = []
+    for v in img_captions.values():
+        caps.extend(v)
+
+    senti_caps = defaultdict(list)
+    guiyi = 0
+    for cap in tqdm.tqdm(caps):
+        num_pos = 0
+        num_neg = 0
+        for w in cap:
+            if w in sentiment_words['positive']:
+                num_pos += 1
+            if w in sentiment_words['negative']:
+                num_neg += 1
+        if num_pos == 0 and num_neg == 0:
+            senti_caps['neu'].append(cap)
+        elif num_pos > 1 and num_neg > 1:
+            guiyi += 1
+            continue
+        elif num_pos > 1:
+            senti_caps['pos'].append(cap)
+        elif num_neg > 1:
+            senti_caps['neg'].append(cap)
+    for k, v in senti_caps.items():
+        senti_caps[k] = [c for c in v if 3 < len(c) < 25]
+
+    neu_caps = random.sample(senti_caps['neu'], 10000)
+    senti_corpus['neutral'].extend(neu_caps)
+
+    fact_caps = senti_caps['neg'] + random.sample(senti_caps['pos'], 30000)
+    fact_caps.extend(random.sample(senti_caps['neu'], 100000-len(fact_caps)))
+    real_captions['fact'] = fact_caps
+    real_captions['senti'] = senti_corpus
+    json.dump(real_captions, open(opt.real_captions, 'w'))
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
@@ -289,6 +337,7 @@ if __name__ == '__main__':
     parser.add_argument('--senti_corpus', type=str, default='../../dataset/sentiment/corpus/raws/senti_corpus.json')
     parser.add_argument('--tmp_senti_corpus', type=str, default='./data/captions/tmp_senti_corpus.json')
     parser.add_argument('--tmp_senti_corpus_pos', type=str, default='./data/captions/tmp_senti_corpus_pos.json')
+    parser.add_argument('--sentiment_words', type=str, default='./data/captions/tmp_sentiment_words.json')
     parser.add_argument('--sentiment_detector', type=str, default='./data/captions/sentiment_detector.json')
 
     parser.add_argument('--idx2concept', type=str, default='./data/captions/idx2concept.json')
@@ -300,6 +349,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--img_det_sentiments', type=str, default='./data/captions/img_det_sentiments.json')
 
+    parser.add_argument('--real_captions', type=str, default='./data/captions/real_captions.json')
+
     opt = parser.parse_args()
 
     opt.use_gpu = torch.cuda.is_available()
@@ -308,10 +359,10 @@ if __name__ == '__main__':
     try:
         # extract_imgs_feat()
         # process_coco_captions()
-        # process_senti_corpus()
+        process_senti_corpus()
         # build_idx2concept()
         # get_img_senti_labels()
-        build_idx2word()
+        # build_idx2word()
     except BdbQuit:
         sys.exit(1)
     except Exception:

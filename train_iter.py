@@ -61,10 +61,11 @@ def train():
     for cap in real_captions['fact']:
         real_captions_tmp['fact'].append(
             [word2idx.get(w, None) or word2idx['<UNK>'] for w in cap])
-    for senti_label, cap in real_captions['senti']:
-        real_captions_tmp['senti'].append(
-            (opt.sentiment_categories.index(senti_label),
-             [word2idx.get(w, None) or word2idx['<UNK>'] for w in cap]))
+    for senti_label, caps in real_captions['senti'].items():
+        for cap in caps:
+            real_captions_tmp['senti'].append(
+                (opt.sentiment_categories.index(senti_label),
+                 [word2idx.get(w, None) or word2idx['<UNK>'] for w in cap]))
     real_captions = real_captions_tmp
 
     in_senti_cap = InSentiCap(
