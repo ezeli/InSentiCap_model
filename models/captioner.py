@@ -246,8 +246,8 @@ class Captioner(nn.Module):
                 unfinished = it != self.eos_id
             else:
                 unfinished = unfinished * (it != self.eos_id)
-            # if unfinished.sum() == 0:
-            #     break
+            if unfinished.sum() == 0:
+                break
             unfinishs.append(unfinished)
             if unfinished.sum() != batch_size:
                 end_idx = (~unfinished).nonzero().view(-1)

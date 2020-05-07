@@ -44,16 +44,17 @@ class InSentiCap(nn.Module):
         if caps_type == 'senti':
             sentis, caps = zip(*caps)
 
-        cap_tensor = torch.LongTensor(len(caps), max_len).to(device).fill_(self.pad_id)
+        lengths = [min(len(c), max_len) for c in caps]
+        cap_tensor = torch.LongTensor(len(caps), max(lengths)).to(device).fill_(self.pad_id)
         for i, c in enumerate(caps):
-            end_cap = min(max_len, len(c))
+            end_cap = lengths[i]
             cap_tensor[i, :end_cap] = torch.LongTensor(c[:end_cap])
         cap_tensor = self.captioner.word_embed(cap_tensor)  # [bs, max_len, word_dim]
         if caps_type == 'senti':
             sentis = torch.LongTensor(sentis).to(device)
-            return cap_tensor, sentis
+            return (cap_tensor, lengths), sentis
         else:
-            return cap_tensor, None
+            return cap_tensor, lengths
 
     def forward(self, data, data_type, training):
         self.train(training)
@@ -101,7 +102,7 @@ class InSentiCap(nn.Module):
                     self.dis_optim.step()
                     self.discriminator.weight_cliping()
 
-                    real_caps, real_senti_labels = self.get_batch_real_caps(
+                    (real_caps, _), real_senti_labels = self.get_batch_real_caps(
                         'senti', bs, self.max_seq_length)  # [bs, max_len, word_dim], [bs]
                     c_real_out = self.classifier(real_caps)  # [bs, num_senti]
                     c_real_loss = self.cls_crit(c_real_out, real_senti_labels)
@@ -118,7 +119,7 @@ class InSentiCap(nn.Module):
             d_fake_loss = self.dis_crit(d_fake_out, d_fake_labels)
             d_loss = d_real_loss + d_fake_loss
 
-            real_caps, real_senti_labels = self.get_batch_real_caps(
+            (real_caps, _), real_senti_labels = self.get_batch_real_caps(
                 'senti', bs, self.max_seq_length)  # [bs, max_len, word_dim], [bs]
             c_real_out = self.classifier(real_caps)  # [bs, num_senti]
             c_real_loss = self.cls_crit(c_real_out, real_senti_labels)

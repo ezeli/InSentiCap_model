@@ -138,7 +138,7 @@ def train():
               'senti_val_loss: %.4f, fact_val_loss: %.4f' %
               (senti_train_loss[0], fact_train_loss[0],
                senti_val_loss[0], fact_val_loss[0]))
-        if epoch > -1:
+        if epoch in [0, 1, 2, 3, 5, 7, 10, 13, 15, 17, 20, 23, 25, 27, 29]:
             chkpoint = {
                 'epoch': epoch,
                 'model': in_senti_cap.state_dict(),
