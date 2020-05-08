@@ -260,10 +260,9 @@ class Captioner(nn.Module):
                senti_feat=None, sentiments=None,
                beam_size=3, decoding_constraint=1, max_seq_length=20):
         self.eval()
-        fc_feat = fc_feat.unsqueeze(0)  # [1, fc_feat]
-        att_feat = att_feat.view(-1, att_feat.shape[-1])  # [num_atts, att_feat]
-        att_feat = att_feat.unsqueeze(0)  # [1, num_atts, att_feat]
-        concepts = concepts.unsqueeze(0)  # [1, num_cpts]
+        fc_feat = fc_feat.view(1, -1)  # [1, fc_feat]
+        att_feat = att_feat.view(1, -1, att_feat.shape[-1])  # [1, num_atts, att_feat]
+        concepts = concepts.view(1, -1)  # [1, num_cpts]
         fc_feat = self.fc_embed(fc_feat)  # [1, feat_emb]
         att_feat = self.att_embed(att_feat)  # [1, num_atts, feat_emb]
         cpt_feat = self.word_embed(concepts)  # [1, num_cpts, word_emb]
@@ -273,7 +272,7 @@ class Captioner(nn.Module):
         if senti_feat:
             senti_feat = senti_feat.view(1, -1)  # [1, senti_feat]
             senti_feat = self.senti_embed(senti_feat)  # [1, feat_emb]
-            sentiments = sentiments.unsqueeze(0)  # [1, num_stmts]
+            sentiments = sentiments.view(1, -1)  # [1, num_stmts]
             senti_word_feat = self.word_embed(sentiments)  # [1, num_stmts, word_emb]
             p_senti_word_feat = self.senti2att(senti_word_feat)  # [1, num_stmts, att_hid]
         else:

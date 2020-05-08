@@ -144,7 +144,7 @@ def train():
                 'model': in_senti_cap.state_dict(),
                 'settings': opt.settings,
                 'idx2word': idx2word,
-                'max_seq_length': opt.max_seq_length,
+                'max_seq_length': opt.max_sql_len,
                 'sentiment_categories': opt.sentiment_categories,
                 'iter_hyperparams': opt.iter_hyperparams,
             }
