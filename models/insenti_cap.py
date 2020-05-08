@@ -75,6 +75,7 @@ class InSentiCap(nn.Module):
             att_feats = att_feats.to(device)
             cpts_tensor = cpts_tensor.to(device)
             sentis_tensor = sentis_tensor.to(device)
+            del data_item
 
             det_sentis, det_senti_features = self.senti_detector(att_feats)  # [bs, num_sentis], [bs, 14, 14]
             if data_type == 'fact':
@@ -162,4 +163,6 @@ class InSentiCap(nn.Module):
                 cap_loss.backward()
                 self.cap_optim.step()
 
-        return list((all_losses/len(data)).detach().numpy()*100)
+            del fc_feats, att_feats, cpts_tensor, sentis_tensor, senti_labels
+
+        return list((all_losses/len(data)).detach().numpy())

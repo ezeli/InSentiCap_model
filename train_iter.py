@@ -1,5 +1,4 @@
 # coding:utf8
-import tqdm
 import os
 import h5py
 import time
@@ -9,17 +8,16 @@ import pdb
 import traceback
 from bdb import BdbQuit
 import torch
-from torch.nn.utils.rnn import pack_padded_sequence
 
 from opts import parse_opt
 from models.insenti_cap import InSentiCap
 from dataloader import get_iter_fact_dataloader, get_iter_senti_dataloader
 
 
-def clip_gradient(optimizer, grad_clip):
-    for group in optimizer.param_groups:
-        for param in group['params']:
-            param.grad.data.clamp_(-grad_clip, grad_clip)
+# def clip_gradient(optimizer, grad_clip):
+#     for group in optimizer.param_groups:
+#         for param in group['params']:
+#             param.grad.data.clamp_(-grad_clip, grad_clip)
 
 
 def train():
@@ -108,7 +106,7 @@ def train():
     previous_loss = None
     for epoch in range(opt.iter_epochs):
         print('--------------------epoch: %d' % epoch)
-        # torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
         for i in range(opt.iter_senti_times):
             print('----------iter_senti_times: %d' % i)
             senti_train_loss = in_senti_cap(senti_train_data, data_type='senti', training=True)
@@ -117,7 +115,9 @@ def train():
             print('----------iter_fact_times: %d' % i)
             fact_train_loss = in_senti_cap(fact_train_data, data_type='fact', training=True)
             print('fact_train_loss: %s' % fact_train_loss)
+        # torch.save(in_senti_cap.state_dict(), os.path.join(checkpoint, 'in_senti_cap_%s.pth' % epoch))
         with torch.no_grad():
+            torch.cuda.empty_cache()
             print('----------val')
             senti_val_loss = in_senti_cap(senti_val_data, data_type='senti', training=False)
             print('senti_val_loss: %s' % senti_val_loss)

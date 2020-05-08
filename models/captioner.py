@@ -99,12 +99,9 @@ class Captioner(nn.Module):
     def __init__(self, idx2word, settings):
         super(Captioner, self).__init__()
         self.idx2word = idx2word
-        self.word2idx = {}
-        for i, w in enumerate(idx2word):
-            self.word2idx[w] = i
-        self.pad_id = self.word2idx['<PAD>']
-        self.sos_id = self.word2idx['<SOS>']
-        self.eos_id = self.word2idx['<EOS>']
+        self.pad_id = idx2word.index('<PAD>')
+        self.sos_id = idx2word.index('<SOS>')
+        self.eos_id = idx2word.index('<EOS>')
         # self.pad_id = self.sos_id = self.eos_id = 0
 
         self.vocab_size = len(idx2word)

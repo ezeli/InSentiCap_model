@@ -40,7 +40,7 @@ def parse_opt():
     # iter
     parser.add_argument('--iter_lrs', type=json.loads,
                         default='{"cap_lr": 4e-5, "senti_lr": 4e-4, "dis_lr": 4e-4, "cla_lr": 4e-4, "tra_lr": 4e-4}')
-    parser.add_argument('--iter_bs', type=int, default=80)
+    parser.add_argument('--iter_bs', type=int, default=40)
     parser.add_argument('--iter_resume', type=str, default='')
     parser.add_argument('--iter_xe_resume', type=str, default='./checkpoint/xe/model-xe-20.pth')
     parser.add_argument('--iter_epochs', type=int, default=30)
