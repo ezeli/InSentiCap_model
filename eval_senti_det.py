@@ -28,22 +28,17 @@ test_data = get_senti_image_dataloader(
     f_senti_att, img_senti_labels[split],sentiment_categories,
     opt.senti_bs, shuffle=False)
 
-pre = 0.0
-recall = 0.0
+corr_rate = 0.0
 for _, att_feats, labels in tqdm.tqdm(test_data):
     att_feats = att_feats.to(opt.device)
+    labels = labels.to(opt.device)
     idx, _, _, _ = model.sample(att_feats)
-    labels = [int(n) for n in labels]
-    idx = [int(n) for n in idx]
 
-    jiaoji = len(set(labels) - (set(labels) - set(idx)))
-    pre += jiaoji / len(idx)
-    recall += jiaoji / len(labels)
-
+    corr = sum(labels == idx)
+    corr_rate += corr / len(idx)
 
 data_len = len(test_data)
-print('precision: %s, recall: %s' %
-      (pre / data_len, recall / data_len))
+print('Correct rate: %s' % (corr_rate / data_len))
 
 
 
