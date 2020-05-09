@@ -132,11 +132,11 @@ class InSentiCap(nn.Module):
             t_loss = self.tra_crit(t_out, fc_feats)
 
             cap_loss = -self.hp_dis * d_loss + self.hp_cls * c_loss + self.hp_tra * t_loss
-            all_losses[0] += cap_loss
-            all_losses[1] += s_loss
-            all_losses[2] += d_loss
-            all_losses[3] += c_loss
-            all_losses[4] += t_loss
+            all_losses[0] += int(cap_loss)
+            all_losses[1] += int(s_loss)
+            all_losses[2] += int(d_loss)
+            all_losses[3] += int(c_loss)
+            all_losses[4] += int(t_loss)
 
             if training:
                 if data_type == 'senti':

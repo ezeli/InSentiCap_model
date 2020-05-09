@@ -96,6 +96,7 @@ def train():
             'idx2word and resume model idx2word are different'
         in_senti_cap.captioner.load_state_dict(chkpoint['model'])
         if opt.iter_senti_resume:
+            print("====> loading iter_senti_resume '{}'".format(opt.iter_senti_resume))
             ch = torch.load(opt.iter_senti_resume, map_location=lambda s, l: s)
             assert opt.settings == ch['settings'], \
                 'opt.settings and iter_senti_resume settings are different'
