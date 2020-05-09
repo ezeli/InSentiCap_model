@@ -269,7 +269,7 @@ class Captioner(nn.Module):
         p_att_feat = self.att2att(att_feat)  # [1, num_atts, att_hid]
         p_cpt_feat = self.cpt2att(cpt_feat)  # [bs, num_cpts, att_hid]
 
-        if senti_feat:
+        if senti_feat is not None:
             senti_feat = senti_feat.view(1, -1)  # [1, senti_feat]
             senti_feat = self.senti_embed(senti_feat)  # [1, feat_emb]
             sentiments = sentiments.view(1, -1)  # [1, num_stmts]
@@ -311,6 +311,74 @@ class Captioner(nn.Module):
                         tmp_candidates.append(BeamCandidate(state, log_prob_sum + log_prob,
                                                             log_prob_seq + [log_prob],
                                                             word_id, word_id_seq + [word_id]))
+            candidates = sorted(tmp_candidates, key=lambda x: x.log_prob_sum, reverse=True)[:beam_size]
+            if end_flag:
+                break
+
+        # captions, scores
+        captions = [' '.join([self.idx2word[idx] for idx in candidate.word_id_seq if idx != self.eos_id])
+                    for candidate in candidates]
+        scores = [candidate.log_prob_sum for candidate in candidates]
+        return captions, scores
+
+    def sample_ft(self, fc_feat, att_feat, concepts,
+                  senti_feat=None, sentiments=None,
+                  beam_size=3, decoding_constraint=1, max_seq_length=20):
+        self.eval()
+        fc_feat = fc_feat.view(1, -1)  # [1, fc_feat]
+        att_feat = att_feat.view(1, -1, att_feat.shape[-1])  # [1, num_atts, att_feat]
+        concepts = concepts.view(1, -1)  # [1, num_cpts]
+        fc_feat = self.fc_embed(fc_feat)  # [1, feat_emb]
+        att_feat = self.att_embed(att_feat)  # [1, num_atts, feat_emb]
+        cpt_feat = self.word_embed(concepts)  # [1, num_cpts, word_emb]
+        p_att_feat = self.att2att(att_feat)  # [1, num_atts, att_hid]
+        p_cpt_feat = self.cpt2att(cpt_feat)  # [bs, num_cpts, att_hid]
+
+        if senti_feat is not None:
+            senti_feat = senti_feat.view(1, -1)  # [1, senti_feat]
+            senti_feat = self.senti_embed(senti_feat)  # [1, feat_emb]
+            sentiments = sentiments.view(1, -1)  # [1, num_stmts]
+            senti_word_feat = self.word_embed(sentiments)  # [1, num_stmts, word_emb]
+            p_senti_word_feat = self.senti2att(senti_word_feat)  # [1, num_stmts, att_hid]
+        else:
+            senti_word_feat = p_senti_word_feat = None
+
+        we_weight = self.word_embed[0].weight[1:, :]  # [vocab-1, word_dim]
+        it = concepts.new_zeros(1).fill_(self.sos_id)
+        word_emb = self.word_embed(it)  # [1, word_dim]
+        state = self.init_hidden(1)
+        candidates = [BeamCandidate(state, 0., word_emb, self.sos_id, [])]
+        for t in range(max_seq_length):
+            tmp_candidates = []
+            end_flag = True
+            for candidate in candidates:
+                state, log_prob_sum, word_emb, last_word_id, word_id_seq = candidate
+                if t > 0 and last_word_id == self.eos_id:
+                    tmp_candidates.append(candidate)
+                else:
+                    end_flag = False
+                    output, state = self.\
+                        forward_step(word_emb, fc_feat, att_feat, cpt_feat,
+                                     p_att_feat, p_cpt_feat, state,
+                                     senti_feat, senti_word_feat,
+                                     p_senti_word_feat)  # [1, vocab_size]
+                    # output = output.squeeze(0)  # vocab_size
+                    output[:, self.pad_id] = float('-inf')  # do not generate <PAD> and <SOS>
+                    output[:, self.sos_id] = float('-inf')
+                    if decoding_constraint:  # do not generate last step word
+                        output[:, last_word_id] = float('-inf')
+                    output = output.softmax(dim=-1)  # [1, vocab_size]
+                    word_emb = output[:, 1:].mm(we_weight)  # [1, word_dim]
+                    logprobs = output.log()  # vocab_size
+
+                    output_sorted, index_sorted = torch.sort(logprobs, descending=True)
+                    for k in range(beam_size):
+                        log_prob, word_id = output_sorted[k], index_sorted[k]  # tensor, tensor
+                        log_prob = float(log_prob)
+                        word_id = int(word_id)
+                        tmp_candidates.append(BeamCandidate(state, log_prob_sum + log_prob,
+                                                            word_emb, word_id,
+                                                            word_id_seq + [word_id]))
             candidates = sorted(tmp_candidates, key=lambda x: x.log_prob_sum, reverse=True)[:beam_size]
             if end_flag:
                 break

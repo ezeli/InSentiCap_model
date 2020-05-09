@@ -39,7 +39,7 @@ def train():
     fact_val_data = get_iter_fact_dataloader(
         f_fc, f_att, img_det_concepts, img_det_sentiments, idx2word,
         img_captions['val'].keys(), idx2word.index('<PAD>'),
-        opt.num_concepts, opt.num_sentiments, opt.iter_bs, shuffle=False)
+        opt.num_concepts, opt.num_sentiments, 20, shuffle=False)
     del img_captions
 
     senti_train_data = get_iter_senti_dataloader(
@@ -49,7 +49,7 @@ def train():
     senti_val_data = get_iter_senti_dataloader(
         f_senti_fc, f_senti_att, img_det_concepts, img_det_sentiments, idx2word,
         img_senti_labels['val'], opt.sentiment_categories, idx2word.index('<PAD>'),
-        opt.num_concepts, opt.num_sentiments, opt.iter_bs, shuffle=False)
+        opt.num_concepts, opt.num_sentiments, 20, shuffle=False)
 
     word2idx = {}
     for i, w in enumerate(idx2word):
@@ -78,7 +78,7 @@ def train():
             'opt.settings and resume model settings are different'
         assert idx2word == chkpoint['idx2word'], \
             'idx2word and resume model idx2word are different'
-        assert opt.max_seq_length == chkpoint['max_seq_length'], \
+        assert opt.max_sql_len == chkpoint['max_seq_length'], \
             'opt.max_seq_length and resume model max_seq_length are different'
         assert opt.sentiment_categories == chkpoint['sentiment_categories'], \
             'opt.sentiment_categories and resume model sentiment_categories are different'

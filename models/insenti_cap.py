@@ -172,7 +172,7 @@ class InSentiCap(nn.Module):
         self.eval()
         att_feats = att_feats.unsqueeze(1)
         _, senti_features, det_img_sentis, _ = self.senti_detector.sample(att_feats)
-        captions, _ = self.captioner.sample(
+        captions, _ = self.captioner.sample_ft(
             fc_feats, att_feats, cpts_tensor, senti_features, sentis_tensor,
             beam_size, decoding_constraint, self.max_seq_length)
 
