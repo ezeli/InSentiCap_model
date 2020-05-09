@@ -48,15 +48,15 @@ for fns, fc_feats, cpts_tensors in tqdm.tqdm(test_data):
         predict_result[fn] = cpts
         grdt = img_concepts[split][fn]
         jiaoji = len(set(grdt) - (set(grdt)-set(cpts)))
-        tmp_pre += jiaoji // len(cpts)
-        tmp_rec += jiaoji // len(grdt)
-    pre += tmp_pre // len(fns)
-    recall += tmp_rec // len(fns)
+        tmp_pre += jiaoji / len(cpts)
+        tmp_rec += jiaoji / len(grdt)
+    pre += tmp_pre / len(fns)
+    recall += tmp_rec / len(fns)
 
 
 data_len = len(test_data)
 print('loss: %s, precision: %s, recall: %s' %
-      (loss_val // data_len, pre // data_len, recall // data_len))
+      (loss_val / data_len, pre / data_len, recall / data_len))
 
 
 

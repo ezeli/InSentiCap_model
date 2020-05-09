@@ -20,7 +20,7 @@ def parse_opt():
     parser.add_argument('--senti_lr', type=float, default=4e-4)
     parser.add_argument('--senti_bs', type=int, default=80)
     parser.add_argument('--senti_resume', type=str, default='')
-    parser.add_argument('--senti_epochs', type=int, default=40)
+    parser.add_argument('--senti_epochs', type=int, default=30)
 
     parser.add_argument('--img_senti_labels', type=str, default='./data/captions/img_senti_labels.json')
     parser.add_argument('--sentiment_categories', type=list, default=['positive', 'negative', 'neutral'])
