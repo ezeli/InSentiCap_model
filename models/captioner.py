@@ -369,6 +369,7 @@ class Captioner(nn.Module):
                         output[:, last_word_id] = float('-inf')
                     output = output.softmax(dim=-1)  # [1, vocab_size]
                     word_emb = output[:, 1:].mm(we_weight)  # [1, word_dim]
+                    output = output.squeeze(0)  # vocab_size
                     logprobs = output.log()  # vocab_size
 
                     output_sorted, index_sorted = torch.sort(logprobs, descending=True)

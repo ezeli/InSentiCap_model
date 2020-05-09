@@ -95,6 +95,13 @@ def train():
         assert idx2word == chkpoint['idx2word'], \
             'idx2word and resume model idx2word are different'
         in_senti_cap.captioner.load_state_dict(chkpoint['model'])
+        if opt.iter_senti_resume:
+            ch = torch.load(opt.iter_senti_resume, map_location=lambda s, l: s)
+            assert opt.settings == ch['settings'], \
+                'opt.settings and iter_senti_resume settings are different'
+            assert opt.sentiment_categories == ch['sentiment_categories'], \
+                'opt.sentiment_categories and iter_senti_resume sentiment_categories are different'
+            in_senti_cap.senti_detector.load_state_dict(ch['model'])
         print("====> loaded checkpoint '{}', epoch: {}"
               .format(opt.iter_xe_resume, chkpoint['epoch']))
     else:

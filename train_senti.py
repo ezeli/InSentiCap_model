@@ -83,7 +83,7 @@ def train():
         previous_loss = val_loss
 
         print('train_loss: %.4f, val_loss: %.4f' % (train_loss, val_loss))
-        if epoch in [0, 1, 2, 5, 7, 9] or epoch > 10:
+        if epoch in [5, 10, 15, 20, 25, 29]:
             chkpoint = {
                 'epoch': epoch,
                 'model': senti_detector.state_dict(),
