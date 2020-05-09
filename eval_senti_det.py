@@ -25,7 +25,7 @@ print("====> loaded checkpoint '{}', epoch: {}".
 
 split = 'test'
 test_data = get_senti_image_dataloader(
-    f_senti_att, img_senti_labels[split],sentiment_categories,
+    f_senti_att, img_senti_labels[split], sentiment_categories,
     opt.senti_bs, shuffle=False)
 
 corr_rate = 0.0
@@ -35,10 +35,10 @@ for _, att_feats, labels in tqdm.tqdm(test_data):
     idx, _, _, _ = model.sample(att_feats)
 
     corr = sum(labels == idx)
-    corr_rate += corr / len(idx)
+    corr_rate += corr // len(idx)
 
 data_len = len(test_data)
-print('Correct rate: %s' % (corr_rate / data_len))
+print('Correct rate: %s' % (corr_rate // data_len))
 
 
 
