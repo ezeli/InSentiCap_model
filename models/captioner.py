@@ -256,7 +256,7 @@ class Captioner(nn.Module):
         return outputs, lengths
 
     def forward_rl(self, fc_feats, att_feats, concepts,
-                   senti_feats, sentiments, max_seq_length, sample_max):
+                   senti_feats, sentiments, max_seq_len, sample_max):
         batch_size = fc_feats.shape[0]
 
         fc_feats = self.fc_embed(fc_feats)  # [bs, feat_emb]
@@ -277,7 +277,7 @@ class Captioner(nn.Module):
         seq_masks = fc_feats.new_zeros((batch_size, max_seq_len))
         it = fc_feats.new_zeros(batch_size, dtype=torch.long).fill_(self.sos_id)  # first input <SOS>
         unfinished = it == self.sos_id
-        for t in range(max_seq_length):
+        for t in range(max_seq_len):
             word_embs = self.word_embed(it)  # [bs, word_emb]
             output, state = self.forward_step(word_embs, fc_feats, att_feats, cpt_feats,
                                               p_att_feats, p_cpt_feats, state,

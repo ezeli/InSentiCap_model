@@ -105,9 +105,9 @@ def train():
     senti_labels_id = {}
     for split, senti_labels in img_senti_labels.items():
         print('convert %s senti_labels to index' % split)
-        senti_labels_id[split] = {}
-        for fn, senti_label in tqdm.tqdm(senti_labels.items()):
-            senti_labels_id[split][fn] = senti_label2idx[senti_label]
+        senti_labels_id[split] = []
+        for fn, senti_label in tqdm.tqdm(senti_labels):
+            senti_labels_id[split].append([fn, senti_label2idx[senti_label]])
     img_senti_labels = senti_labels_id
     print('====> process image senti_labels end')
 

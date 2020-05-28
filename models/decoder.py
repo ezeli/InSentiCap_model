@@ -33,7 +33,7 @@ class Detector(nn.Module):
     def set_lms(self, lms):
         self.lms = lms
 
-    def forward(self, data, data_type, training, ciderd_scorer):
+    def forward(self, data, data_type, training):
         self.train(training)
         all_losses = [0.0, 0.0]
         device = next(self.parameters()).device
