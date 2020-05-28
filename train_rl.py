@@ -152,19 +152,19 @@ def train():
         for i in range(opt.rl_senti_times):
             print('----------rl_senti_times: %d' % i)
             senti_train_loss = model(senti_train_data, data_type='senti', training=True)
-            print('senti_train_loss: %s' % senti_train_loss)
+            print('senti_train_loss:', senti_train_loss)
         for i in range(opt.rl_fact_times):
             print('----------rl_fact_times: %d' % i)
             fact_train_loss = model(fact_train_data, data_type='fact', training=True)
-            print('fact_train_loss: %s' % fact_train_loss)
+            print('fact_train_loss:', fact_train_loss)
         # torch.save(model.state_dict(), os.path.join(checkpoint, 'model_%s.pth' % epoch))
         with torch.no_grad():
             torch.cuda.empty_cache()
             print('----------val')
             senti_val_loss = model(senti_val_data, data_type='senti', training=False)
-            print('senti_val_loss: %s' % senti_val_loss)
+            print('senti_val_loss:', senti_val_loss)
             fact_val_loss = model(fact_val_data, data_type='fact', training=False)
-            print('fact_val_loss: %s' % fact_val_loss)
+            print('fact_val_loss:', fact_val_loss)
 
             # test
             results = []
