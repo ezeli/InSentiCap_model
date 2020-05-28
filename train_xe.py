@@ -49,11 +49,11 @@ def train():
 
     train_data = get_caption_dataloader(f_fc, f_att, img_captions['train'],
                                         img_det_concepts, idx2word,
-                                        idx2word.index('<PAD>'), opt.max_sql_len+1,
+                                        idx2word.index('<PAD>'), opt.max_sql_len,
                                         opt.num_concepts, opt.xe_bs)
     val_data = get_caption_dataloader(f_fc, f_att, img_captions['val'],
                                       img_det_concepts, idx2word,
-                                      idx2word.index('<PAD>'), opt.max_sql_len+1,
+                                      idx2word.index('<PAD>'), opt.max_sql_len,
                                       opt.num_concepts, opt.xe_bs, shuffle=False)
 
     def forward(data, training=True, ss_prob=0.0):

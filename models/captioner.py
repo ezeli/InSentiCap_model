@@ -100,9 +100,8 @@ class Captioner(nn.Module):
         super(Captioner, self).__init__()
         self.idx2word = idx2word
         self.pad_id = idx2word.index('<PAD>')
-        self.sos_id = idx2word.index('<SOS>')
-        self.eos_id = idx2word.index('<EOS>')
-        # self.pad_id = self.sos_id = self.eos_id = 0
+        self.sos_id = idx2word.index('<SOS>') if '<SOS>' in idx2word else self.pad_id
+        self.eos_id = idx2word.index('<EOS>') if '<SOS>' in idx2word else self.pad_id
 
         self.vocab_size = len(idx2word)
         self.word_embed = nn.Sequential(nn.Embedding(self.vocab_size, settings['word_emb_dim'],
@@ -255,6 +254,58 @@ class Captioner(nn.Module):
         unfinishs = torch.stack(unfinishs, dim=1)  # [bs, max_len]
         lengths = unfinishs.sum(dim=-1)  # bs
         return outputs, lengths
+
+    def forward_rl(self, fc_feats, att_feats, concepts,
+                   senti_feats, sentiments, max_seq_length, sample_max):
+        batch_size = fc_feats.shape[0]
+
+        fc_feats = self.fc_embed(fc_feats)  # [bs, feat_emb]
+        att_feats = att_feats.view(batch_size, -1, att_feats.shape[-1])  # [bs, num_atts, att_feat]
+        att_feats = self.att_embed(att_feats)  # [bs, num_atts, feat_emb]
+        cpt_feats = self.word_embed(concepts)  # [bs, num_cpts, word_emb]
+        senti_feats = senti_feats.view(batch_size, -1)  # [bs, senti_feat]
+        senti_feats = self.senti_embed(senti_feats)  # [bs, feat_emb]
+        senti_word_feats = self.word_embed(sentiments)  # [bs, num_stmts, word_emb]
+        # p_att_feats/p_cpt_feats are used for attention, we cache it in advance to reduce computation cost
+        p_att_feats = self.att2att(att_feats)  # [bs, num_atts, att_hid]
+        p_cpt_feats = self.cpt2att(cpt_feats)  # [bs, num_cpts, att_hid]
+        p_senti_word_feats = self.senti2att(senti_word_feats)  # [bs, num_stmts, att_hid]
+
+        state = self.init_hidden(batch_size)
+        seq = fc_feats.new_zeros((batch_size, max_seq_len), dtype=torch.long)
+        seq_logprobs = fc_feats.new_zeros((batch_size, max_seq_len))
+        seq_masks = fc_feats.new_zeros((batch_size, max_seq_len))
+        it = fc_feats.new_zeros(batch_size, dtype=torch.long).fill_(self.sos_id)  # first input <SOS>
+        unfinished = it == self.sos_id
+        for t in range(max_seq_length):
+            word_embs = self.word_embed(it)  # [bs, word_emb]
+            output, state = self.forward_step(word_embs, fc_feats, att_feats, cpt_feats,
+                                              p_att_feats, p_cpt_feats, state,
+                                              senti_feats, senti_word_feats,
+                                              p_senti_word_feats)
+
+            output = output.softmax(dim=-1)  # [bs, vocab]
+            logprobs = output.log()  # [bs, vocab]
+
+            if sample_max:
+                sample_logprobs, it = logprobs.max(dim=1)  # bs
+                it = it.long()
+            else:
+                it = torch.multinomial(output, 1)  # bs*1
+                sample_logprobs = logprobs.gather(1, it)  # bs*1, gather the logprobs at sampled positions
+                it = it.view(-1).long()  # bs
+                sample_logprobs = sample_logprobs.view(-1)  # bs
+
+            seq_masks[:, t] = unfinished
+            it = it * unfinished.type_as(it)  # bs
+            seq[:, t] = it
+            seq_logprobs[:, t] = sample_logprobs
+
+            unfinished = unfinished * (it != self.eos_id)
+            if unfinished.sum() == 0:
+                break
+
+        return seq, seq_logprobs, seq_masks
 
     def sample(self, fc_feat, att_feat, concepts,
                senti_feat=None, sentiments=None,

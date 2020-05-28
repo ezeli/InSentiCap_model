@@ -34,7 +34,7 @@ for fn, caps in img_captions[split].items():
 
 train_data = get_caption_dataloader(f_fc, f_att, test_captions,
                                     img_det_concepts, idx2word,
-                                    idx2word.index('<PAD>'), opt.max_sql_len + 1,
+                                    idx2word.index('<PAD>'), opt.max_sql_len,
                                     opt.num_concepts, opt.xe_bs)
 
 results = []

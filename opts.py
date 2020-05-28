@@ -51,6 +51,18 @@ def parse_opt():
     parser.add_argument('--iter_hyperparams', type=json.loads,
                         default='{"hp_dis": 0.2, "hp_cls": 1, "hp_tra": 5}')
 
+    # rl
+    parser.add_argument('--rl_lrs', type=json.loads,
+                        default='{"cap_lr": 4e-5, "senti_lr": 4e-4}')
+    parser.add_argument('--rl_bs', type=int, default=80)
+    parser.add_argument('--rl_num_works', type=int, default=2)
+    parser.add_argument('--rl_resume', type=str, default='')
+    parser.add_argument('--rl_xe_resume', type=str, default='./checkpoint/xe/model-xe-20.pth')
+    parser.add_argument('--rl_senti_resume', type=str, default='')
+    parser.add_argument('--rl_epochs', type=int, default=10)
+    parser.add_argument('--rl_fact_times', type=int, default=1)
+    parser.add_argument('--rl_senti_times', type=int, default=2)
+
     # common
     parser.add_argument('--idx2word', type=str, default='./data/captions/idx2word.json')
     parser.add_argument('--img_captions', type=str, default='./data/captions/img_captions.json')
@@ -62,7 +74,9 @@ def parse_opt():
     parser.add_argument('--senti_fc_feats', type=str, default='./data/features/sentiment/feats_fc.h5')
     parser.add_argument('--senti_att_feats', type=str, default='./data/features/sentiment/feats_att.h5')
     parser.add_argument('--checkpoint', type=str, default='./checkpoint/')
+    parser.add_argument('--lm_dir', type=str, default='./data/corpus')
     parser.add_argument('--max_sql_len', type=int, default=20)
+    parser.add_argument('--max_seq_len', type=int, default=20)
     parser.add_argument('--num_concepts', type=int, default=10)
     parser.add_argument('--num_sentiments', type=int, default=5)
     parser.add_argument('--grad_clip', type=float, default=0.1)
