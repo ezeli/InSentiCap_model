@@ -10,6 +10,12 @@ from self_critical.utils import get_ciderd_scorer, get_self_critical_reward, \
     get_lm_reward, RewardCriterion
 
 
+def clip_gradient(optimizer, grad_clip=0.1):
+    for group in optimizer.param_groups:
+        for param in group['params']:
+            param.grad.data.clamp_(-grad_clip, grad_clip)
+
+
 class Detector(nn.Module):
     def __init__(self, idx2word, max_seq_len, sentiment_categories, lrs, settings):
         super(Detector, self).__init__()
@@ -92,10 +98,12 @@ class Detector(nn.Module):
                 if data_type == 'senti':
                     self.senti_optim.zero_grad()
                     s_loss.backward(retain_graph=True)
+                    clip_gradient(self.senti_optim)
                     self.senti_optim.step()
 
                 self.cap_optim.zero_grad()
                 cap_loss.backward()
+                clip_gradient(self.cap_optim)
                 self.cap_optim.step()
 
         return - all_losses[0] / len(data), all_losses[1] / len(data)
