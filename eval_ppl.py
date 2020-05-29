@@ -6,6 +6,10 @@ import kenlm
 
 sentis = ['positive', 'negative', 'neutral']
 lm_dir = './data/corpus'
+idx2word = './data/captions/idx2word.json'
+word2idx = {}
+for i, w in enumerate(idx2word):
+    word2idx[w] = i
 
 
 def compute_ppl(captions_file_prefix):
@@ -17,7 +21,10 @@ def compute_ppl(captions_file_prefix):
     all_scores = []
     for cap in captions:
         lm = lms[sentiments[cap['image_id']]]
-        full_scores = lm.full_scores(cap['caption'], bos=True, eos=True)
+        caption = cap['caption']
+        caption = caption.split()
+        caption = [word2idx[w] for w in caption]
+        full_scores = lm.full_scores(caption, bos=True, eos=True)
         lp, _, _ = zip(*full_scores)
         # import pdb
         # pdb.set_trace()
