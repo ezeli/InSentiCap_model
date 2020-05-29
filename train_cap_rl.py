@@ -65,9 +65,9 @@ def train():
         for fn, seqs in tqdm.tqdm(caps.items()):
             tmp = []
             for seq in seqs:
-                tmp.append([model.captioner.sos_id] +
+                tmp.append([model.sos_id] +
                            [word2idx.get(w, None) or word2idx['<UNK>'] for w in seq] +
-                           [model.captioner.eos_id])
+                           [model.eos_id])
             captions_id[split][fn] = tmp
     img_captions = captions_id
     print('====> process image captions end')
@@ -88,15 +88,15 @@ def train():
 
     fact_train_data = get_rl_fact_dataloader(
         opt.fc_feats, opt.att_feats, img_captions['train'], img_det_concepts,
-        img_det_sentiments, model.captioner.pad_id, opt.max_seq_len,
+        img_det_sentiments, model.pad_id, opt.max_seq_len,
         opt.num_concepts, opt.num_sentiments, opt.rl_bs, opt.rl_num_works)
     fact_val_data = get_rl_fact_dataloader(
         opt.fc_feats, opt.att_feats, img_captions['val'], img_det_concepts,
-        img_det_sentiments, model.captioner.pad_id, opt.max_seq_len,
+        img_det_sentiments, model.pad_id, opt.max_seq_len,
         opt.num_concepts, opt.num_sentiments, opt.rl_bs, opt.rl_num_works, shuffle=False)
     fact_test_data = get_rl_fact_dataloader(
         opt.fc_feats, opt.att_feats, img_captions['test'], img_det_concepts,
-        img_det_sentiments, model.captioner.pad_id, opt.max_seq_len,
+        img_det_sentiments, model.pad_id, opt.max_seq_len,
         opt.num_concepts, opt.num_sentiments, opt.rl_bs, opt.rl_num_works, shuffle=False)
 
     ciderd_scorer = get_ciderd_scorer(img_captions, model.sos_id, model.eos_id)
