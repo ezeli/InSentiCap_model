@@ -307,6 +307,52 @@ class Captioner(nn.Module):
 
         return seq, seq_logprobs, seq_masks
 
+    def forward_cap_rl(self, fc_feats, att_feats, concepts, max_seq_len,
+                       sample_max):
+        batch_size = fc_feats.shape[0]
+
+        fc_feats = self.fc_embed(fc_feats)  # [bs, feat_emb]
+        att_feats = att_feats.view(batch_size, -1, att_feats.shape[-1])  # [bs, num_atts, att_feat]
+        att_feats = self.att_embed(att_feats)  # [bs, num_atts, feat_emb]
+        cpt_feats = self.word_embed(concepts)  # [bs, num_cpts, word_emb]
+        # p_att_feats/p_cpt_feats are used for attention, we cache it in advance to reduce computation cost
+        p_att_feats = self.att2att(att_feats)  # [bs, num_atts, att_hid]
+        p_cpt_feats = self.cpt2att(cpt_feats)  # [bs, num_cpts, att_hid]
+
+        state = self.init_hidden(batch_size)
+        seq = fc_feats.new_zeros((batch_size, max_seq_len), dtype=torch.long)
+        seq_logprobs = fc_feats.new_zeros((batch_size, max_seq_len))
+        seq_masks = fc_feats.new_zeros((batch_size, max_seq_len))
+        it = fc_feats.new_zeros(batch_size, dtype=torch.long).fill_(self.sos_id)  # first input <SOS>
+        unfinished = it == self.sos_id
+        for t in range(max_seq_len):
+            word_embs = self.word_embed(it)  # [bs, word_emb]
+            output, state = self.forward_step(word_embs, fc_feats, att_feats, cpt_feats,
+                                              p_att_feats, p_cpt_feats, state)
+
+            output = output.softmax(dim=-1)  # [bs, vocab]
+            logprobs = output.log()  # [bs, vocab]
+
+            if sample_max:
+                sample_logprobs, it = logprobs.max(dim=1)  # bs
+                it = it.long()
+            else:
+                it = torch.multinomial(output, 1)  # bs*1
+                sample_logprobs = logprobs.gather(1, it)  # bs*1, gather the logprobs at sampled positions
+                it = it.view(-1).long()  # bs
+                sample_logprobs = sample_logprobs.view(-1)  # bs
+
+            seq_masks[:, t] = unfinished
+            it = it * unfinished.type_as(it)  # bs
+            seq[:, t] = it
+            seq_logprobs[:, t] = sample_logprobs
+
+            unfinished = unfinished * (it != self.eos_id)
+            if unfinished.sum() == 0:
+                break
+
+        return seq, seq_logprobs, seq_masks
+
     def sample(self, fc_feat, att_feat, concepts,
                senti_feat=None, sentiments=None,
                beam_size=3, decoding_constraint=1, max_seq_length=20):
