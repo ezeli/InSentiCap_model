@@ -80,6 +80,10 @@ def train():
         opt.fc_feats, opt.att_feats, img_det_concepts, img_det_sentiments,
         img_captions['val'].keys(), idx2word.index('<PAD>'),
         opt.num_concepts, opt.num_sentiments, opt.iter_bs, opt.iter_num_works, shuffle=False)
+    fact_test_data = get_iter_fact_dataloader(
+        opt.fc_feats, opt.att_feats, img_det_concepts, img_det_sentiments,
+        img_captions['test'].keys(), idx2word.index('<PAD>'),
+        opt.num_concepts, opt.num_sentiments, opt.iter_bs, opt.iter_num_works, shuffle=False)
     del img_captions
 
     senti_train_data = get_iter_senti_dataloader(
@@ -136,6 +140,9 @@ def train():
     checkpoint = os.path.join(opt.checkpoint, 'iter')
     if not os.path.exists(checkpoint):
         os.makedirs(checkpoint)
+    result_dir = './result'
+    if not os.path.exists(result_dir):
+        os.makedirs(result_dir)
     previous_loss = None
     for epoch in range(opt.iter_epochs):
         print('--------------------epoch: %d' % epoch)
@@ -156,6 +163,27 @@ def train():
             print('senti_val_loss: %s' % senti_val_loss)
             fact_val_loss = in_senti_cap(fact_val_data, data_type='fact', training=False)
             print('fact_val_loss: %s' % fact_val_loss)
+
+            # test
+            print('----------test')
+            results = []
+            det_sentis = {}
+            for fns, fc_feats, att_feats, cpts_tensor, sentis_tensor in \
+                    tqdm.tqdm(fact_test_data):
+                fc_feats = fc_feats.to(opt.device)
+                att_feats = att_feats.to(opt.device)
+                cpts_tensor = cpts_tensor.to(opt.device)
+                sentis_tensor = sentis_tensor.to(opt.device)
+
+                for i, fn in enumerate(fns):
+                    captions, det_img_sentis = in_senti_cap.sample(
+                        fc_feats[i], att_feats[i], cpts_tensor[i],
+                        sentis_tensor[i], beam_size=opt.beam_size)
+                    results.append({'image_id': fn, 'caption': captions[0]})
+                    det_sentis[fn] = det_img_sentis[0]
+
+            json.dump(results, open(os.path.join(result_dir, 'result_%d.json' % epoch), 'w'))
+            json.dump(det_sentis, open(os.path.join(result_dir, 'result_%d_sentis.json' % epoch), 'w'))
 
         if previous_loss is not None and senti_val_loss[0] > previous_loss[0] \
                 and fact_val_loss[0] > previous_loss[1]:
