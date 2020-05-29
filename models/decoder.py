@@ -111,7 +111,7 @@ class Detector(nn.Module):
     def sample(self, fc_feats, att_feats, cpts_tensor, sentis_tensor,
                beam_size=3, decoding_constraint=1):
         self.eval()
-        att_feats = att_feats.unsqueeze(1)
+        att_feats = att_feats.unsqueeze(0)
         _, senti_features, det_img_sentis, _ = self.senti_detector.sample(att_feats)
         captions, _ = self.captioner.sample(
             fc_feats, att_feats, cpts_tensor, senti_features, sentis_tensor,

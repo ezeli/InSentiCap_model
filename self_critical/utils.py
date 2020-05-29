@@ -37,6 +37,17 @@ def get_ciderd_scorer(split_captions, sos_token, eos_token):
     return scorer
 
 
+def normalization(data, threshold=1):
+    _range = np.max(abs(data)) / threshold
+    return data / _range
+
+
+def standardization(data):
+    mu = np.mean(data, axis=0)
+    sigma = np.std(data, axis=0)
+    return (data - mu) / sigma
+
+
 def get_self_critical_reward(sample_captions, greedy_captions, fns, ground_truth,
                              sos_token, eos_token, scorer):
     batch_size = len(fns)
@@ -64,6 +75,7 @@ def get_self_critical_reward(sample_captions, greedy_captions, fns, ground_truth
         raise Exception('do not support this scorer: %s' % type(scorer))
 
     scores = scores[:batch_size] - scores[batch_size:]
+    scores = normalization(scores)
     rewards = np.repeat(scores[:, np.newaxis], sample_captions.shape[1], 1)
     return rewards
 
@@ -73,15 +85,16 @@ def get_lm_reward(sample_captions, greedy_captions, senti_labels, sos_token, eos
     sample_captions = sample_captions.cpu().numpy()
     greedy_captions = greedy_captions.cpu().numpy()
     senti_labels = senti_labels.cpu().numpy()
-    rewards = []
+    scores = []
     for i in range(batch_size):
         sample_res = array_to_str(sample_captions[i], sos_token, eos_token)
         greedy_res = array_to_str(greedy_captions[i], sos_token, eos_token)
         senti_lm = lms[senti_labels[i]]
-        rewards.append(senti_lm.score(sample_res) - senti_lm.score(greedy_res))
+        scores.append(senti_lm.score(sample_res) - senti_lm.score(greedy_res))
         # rewards.append(senti_lm.perplexity(greedy_res) - senti_lm.perplexity(sample_res))
-    rewards = np.array(rewards)
-    rewards = np.repeat(rewards[:, np.newaxis], sample_captions.shape[1], 1)
+    scores = np.array(scores)
+    scores = normalization(scores)
+    rewards = np.repeat(scores[:, np.newaxis], sample_captions.shape[1], 1)
     return rewards
 
 

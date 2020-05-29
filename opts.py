@@ -59,7 +59,7 @@ def parse_opt():
     parser.add_argument('--rl_resume', type=str, default='')
     parser.add_argument('--rl_xe_resume', type=str, default='./checkpoint/xe/model-xe-20.pth')
     parser.add_argument('--rl_senti_resume', type=str, default='')
-    parser.add_argument('--rl_epochs', type=int, default=10)
+    parser.add_argument('--rl_epochs', type=int, default=20)
     parser.add_argument('--rl_fact_times', type=int, default=1)
     parser.add_argument('--rl_senti_times', type=int, default=2)
 

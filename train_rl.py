@@ -170,7 +170,7 @@ def train():
             results = []
             det_sentis = {}
             for data_item in tqdm.tqdm(fact_test_data):
-                fns, fc_feats, att_feats, (_, _), cpts_tensor, sentis_tensor = data_item
+                fns, fc_feats, att_feats, cpts_tensor, sentis_tensor, _ = data_item
                 fc_feats = fc_feats.to(opt.device)
                 att_feats = att_feats.to(opt.device)
                 cpts_tensor = cpts_tensor.to(opt.device)
@@ -178,8 +178,9 @@ def train():
                 del data_item
 
                 for i, fn in enumerate(fns):
-                    captions, det_img_sentis = model.sample(fc_feats[i], att_feats[i], cpts_tensor[i],
-                                                            sentis_tensor[i], beam_size=opt.beam_size)
+                    captions, det_img_sentis = model.sample(
+                        fc_feats[i], att_feats[i], cpts_tensor[i], sentis_tensor[i],
+                        beam_size=opt.beam_size)
                     results.append({'image_id': fn, 'caption': captions[0]})
                     det_sentis[fn] = det_img_sentis[0]
 
@@ -194,7 +195,7 @@ def train():
                     param_group['lr'] = lr
         previous_loss = [senti_val_loss[0], fact_val_loss[0]]
 
-        if epoch > -1:
+        if epoch in [0, 1, 2, 3, 5, 7, 9, 10, 12, 14, 15, 17, 19]:
             chkpoint = {
                 'epoch': epoch,
                 'model': model.state_dict(),
