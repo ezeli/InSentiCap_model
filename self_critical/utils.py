@@ -75,7 +75,7 @@ def get_self_critical_reward(sample_captions, greedy_captions, fns, ground_truth
         raise Exception('do not support this scorer: %s' % type(scorer))
 
     scores = scores[:batch_size] - scores[batch_size:]
-    scores = normalization(scores)
+    # scores = normalization(scores)
     rewards = np.repeat(scores[:, np.newaxis], sample_captions.shape[1], 1)
     return rewards
 

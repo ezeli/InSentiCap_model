@@ -1,6 +1,6 @@
 # coding:utf8
 import os
-import h5py
+import tqdm
 import time
 import json
 import sys
@@ -27,34 +27,26 @@ def train():
     img_det_sentiments = json.load(open(opt.img_det_sentiments, 'r'))
     img_senti_labels = json.load(open(opt.img_senti_labels, 'r'))
     real_captions = json.load(open(opt.real_captions, 'r'))
-    f_fc = h5py.File(opt.fc_feats, mode='r')
-    f_att = h5py.File(opt.att_feats, mode='r')
-    f_senti_fc = h5py.File(opt.senti_fc_feats, mode='r')
-    f_senti_att = h5py.File(opt.senti_att_feats, mode='r')
-
-    fact_train_data = get_iter_fact_dataloader(
-        f_fc, f_att, img_det_concepts, img_det_sentiments, idx2word,
-        img_captions['train'].keys(), idx2word.index('<PAD>'),
-        opt.num_concepts, opt.num_sentiments, opt.iter_bs)
-    fact_val_data = get_iter_fact_dataloader(
-        f_fc, f_att, img_det_concepts, img_det_sentiments, idx2word,
-        img_captions['val'].keys(), idx2word.index('<PAD>'),
-        opt.num_concepts, opt.num_sentiments, 20, shuffle=False)
-    del img_captions
-
-    senti_train_data = get_iter_senti_dataloader(
-        f_senti_fc, f_senti_att, img_det_concepts, img_det_sentiments, idx2word,
-        img_senti_labels['train'], opt.sentiment_categories, idx2word.index('<PAD>'),
-        opt.num_concepts, opt.num_sentiments, opt.iter_bs)
-    senti_val_data = get_iter_senti_dataloader(
-        f_senti_fc, f_senti_att, img_det_concepts, img_det_sentiments, idx2word,
-        img_senti_labels['val'], opt.sentiment_categories, idx2word.index('<PAD>'),
-        opt.num_concepts, opt.num_sentiments, 20, shuffle=False)
 
     word2idx = {}
     for i, w in enumerate(idx2word):
         word2idx[w] = i
 
+    print('====> process image det_concepts begin')
+    det_concepts_id = {}
+    for fn, cpts in tqdm.tqdm(img_det_concepts.items()):
+        det_concepts_id[fn] = [word2idx[w] for w in cpts]
+    img_det_concepts = det_concepts_id
+    print('====> process image det_concepts end')
+
+    print('====> process image det_sentiments begin')
+    det_sentiments_id = {}
+    for fn, sentis in tqdm.tqdm(img_det_sentiments.items()):
+        det_sentiments_id[fn] = [word2idx[w] for w in sentis]
+    img_det_sentiments = det_sentiments_id
+    print('====> process image det_concepts end')
+
+    print('====> process real_captions begin')
     real_captions_tmp = {'fact': [], 'senti': []}
     for cap in real_captions['fact']:
         real_captions_tmp['fact'].append(
@@ -65,6 +57,39 @@ def train():
                 (opt.sentiment_categories.index(senti_label),
                  [word2idx.get(w, None) or word2idx['<UNK>'] for w in cap]))
     real_captions = real_captions_tmp
+    print('====> process real_captions end')
+
+    senti_label2idx = {}
+    for i, w in enumerate(opt.sentiment_categories):
+        senti_label2idx[w] = i
+    print('====> process image senti_labels begin')
+    senti_labels_id = {}
+    for split, senti_labels in img_senti_labels.items():
+        print('convert %s senti_labels to index' % split)
+        senti_labels_id[split] = []
+        for fn, senti_label in tqdm.tqdm(senti_labels):
+            senti_labels_id[split].append([fn, senti_label2idx[senti_label]])
+    img_senti_labels = senti_labels_id
+    print('====> process image senti_labels end')
+
+    fact_train_data = get_iter_fact_dataloader(
+        opt.fc_feats, opt.att_feats, img_det_concepts, img_det_sentiments,
+        img_captions['train'].keys(), idx2word.index('<PAD>'),
+        opt.num_concepts, opt.num_sentiments, opt.iter_bs, opt.iter_num_works)
+    fact_val_data = get_iter_fact_dataloader(
+        opt.fc_feats, opt.att_feats, img_det_concepts, img_det_sentiments,
+        img_captions['val'].keys(), idx2word.index('<PAD>'),
+        opt.num_concepts, opt.num_sentiments, opt.iter_bs, opt.iter_num_works, shuffle=False)
+    del img_captions
+
+    senti_train_data = get_iter_senti_dataloader(
+        opt.senti_fc_feats, opt.senti_att_feats, img_det_concepts, img_det_sentiments,
+        img_senti_labels['train'], idx2word.index('<PAD>'),
+        opt.num_concepts, opt.num_sentiments, opt.iter_bs, opt.iter_num_works)
+    senti_val_data = get_iter_senti_dataloader(
+        opt.senti_fc_feats, opt.senti_att_feats, img_det_concepts, img_det_sentiments,
+        img_senti_labels['val'], idx2word.index('<PAD>'),
+        opt.num_concepts, opt.num_sentiments, opt.iter_bs, opt.iter_num_works, shuffle=False)
 
     in_senti_cap = InSentiCap(
         idx2word, opt.max_sql_len, opt.sentiment_categories, opt.iter_lrs,

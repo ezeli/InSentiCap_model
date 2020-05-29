@@ -211,25 +211,22 @@ class RLSentiDataset(data.Dataset):
 
 class IterFactDataset(data.Dataset):
     def __init__(self, fc_feats, att_feats, img_det_concepts,
-                 img_det_sentiments, idx2word, fns):
+                 img_det_sentiments, fns):
         self.fc_feats = fc_feats
         self.att_feats = att_feats
         self.det_concepts = img_det_concepts  # {fn: ['a','b',...])}
         self.det_sentiments = img_det_sentiments  # {fn: ['a','b',...])}
-        self.word2idx = {}
-        for i, w in enumerate(idx2word):
-            self.word2idx[w] = i
         self.fns = list(fns)
 
     def __getitem__(self, index):
         fn = self.fns[index]
-        fc_feat = self.fc_feats[fn][:]
-        att_feat = self.att_feats[fn][:]
+        f_fc = h5py.File(self.fc_feats, mode='r')
+        f_att = h5py.File(self.att_feats, mode='r')
+        fc_feat = f_fc[fn][:]
+        att_feat = f_att[fn][:]
         cpts = self.det_concepts[fn]
         sentis = self.det_sentiments[fn]
-        cpts_idx = [self.word2idx[w] for w in cpts]
-        sentis_idx = [self.word2idx[w] for w in sentis]
-        return fn, np.array(fc_feat), np.array(att_feat), cpts_idx, sentis_idx
+        return fn, np.array(fc_feat), np.array(att_feat), cpts, sentis
 
     def __len__(self):
         return len(self.fns)
@@ -237,31 +234,22 @@ class IterFactDataset(data.Dataset):
 
 class IterSentiDataset(data.Dataset):
     def __init__(self, fc_feats, att_feats, img_det_concepts,
-                 img_det_sentiments, idx2word,
-                 img_senti_labels, sentiment_categories):
+                 img_det_sentiments, img_senti_labels):
         self.fc_feats = fc_feats
         self.att_feats = att_feats
         self.det_concepts = img_det_concepts  # {fn: ['a','b',...])}
         self.det_sentiments = img_det_sentiments  # {fn: ['a','b',...])}
-        self.word2idx = {}
-        for i, w in enumerate(idx2word):
-            self.word2idx[w] = i
         self.img_senti_labels = img_senti_labels  # [(fn, senti_label),...]
-        self.senti_label2idx = {}
-        if sentiment_categories:
-            for i, w in enumerate(sentiment_categories):
-                self.senti_label2idx[w] = i
 
     def __getitem__(self, index):
         fn, senti_label = self.img_senti_labels[index]
-        fc_feat = self.fc_feats[fn][:]
-        att_feat = self.att_feats[fn][:]
+        f_fc = h5py.File(self.fc_feats, mode='r')
+        f_att = h5py.File(self.att_feats, mode='r')
+        fc_feat = f_fc[fn][:]
+        att_feat = f_att[fn][:]
         cpts = self.det_concepts[fn]
         sentis = self.det_sentiments[fn]
-        cpts_idx = [self.word2idx[w] for w in cpts]
-        sentis_idx = [self.word2idx[w] for w in sentis]
-        senti_label = self.senti_label2idx[senti_label]
-        return fn, np.array(fc_feat), np.array(att_feat), cpts_idx, sentis_idx, senti_label
+        return fn, np.array(fc_feat), np.array(att_feat), cpts, sentis, senti_label
 
     def __len__(self):
         return len(self.img_senti_labels)
@@ -322,11 +310,11 @@ def get_caption_dataloader(fc_feats, att_feats, img_captions, img_det_concepts,
 
 
 def get_iter_fact_dataloader(fc_feats, att_feats, img_det_concepts,
-                             img_det_sentiments, idx2word, fns,
-                             pad_index, num_concepts, num_sentiments,
+                             img_det_sentiments, fns, pad_index,
+                             num_concepts, num_sentiments,
                              batch_size, num_workers=0, shuffle=True):
     dataset = IterFactDataset(fc_feats, att_feats, img_det_concepts,
-                              img_det_sentiments, idx2word, fns)
+                              img_det_sentiments, fns)
     dataloader = data.DataLoader(dataset,
                                  batch_size=batch_size,
                                  shuffle=shuffle,
@@ -339,13 +327,11 @@ def get_iter_fact_dataloader(fc_feats, att_feats, img_det_concepts,
 
 
 def get_iter_senti_dataloader(fc_feats, att_feats, img_det_concepts,
-                              img_det_sentiments, idx2word, img_senti_labels,
-                              sentiment_categories, pad_index,
+                              img_det_sentiments, img_senti_labels, pad_index,
                               num_concepts, num_sentiments, batch_size,
                               num_workers=0, shuffle=True):
     dataset = IterSentiDataset(fc_feats, att_feats, img_det_concepts,
-                               img_det_sentiments, idx2word,
-                               img_senti_labels, sentiment_categories)
+                               img_det_sentiments, img_senti_labels)
     dataloader = data.DataLoader(dataset,
                                  batch_size=batch_size,
                                  shuffle=shuffle,
