@@ -1,6 +1,7 @@
 # coding:utf8
 import os
 import tqdm
+from collections import defaultdict
 import time
 import json
 import sys
@@ -184,6 +185,17 @@ def train():
 
             json.dump(results, open(os.path.join(result_dir, 'result_%d.json' % epoch), 'w'))
             json.dump(det_sentis, open(os.path.join(result_dir, 'result_%d_sentis.json' % epoch), 'w'))
+
+            sents = defaultdict(str)
+            for res in results:
+                fn = res['image_id']
+                caption = res['caption'].split()
+                caption = [str(word2idx[w]) for w in caption] + [str(word2idx['<EOS>'])]
+                caption = ' '.join(caption) + '\n'
+                sents[det_sentis[fn]] += caption
+            for senti in sents:
+                with open(os.path.join(result_dir, 'result_%d_%s.txt' % (epoch, senti)), 'w') as f:
+                    f.write(sents[senti])
 
         if previous_loss is not None and senti_val_loss[0] > previous_loss[0] \
                 and fact_val_loss[0] > previous_loss[1]:
