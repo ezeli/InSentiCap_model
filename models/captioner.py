@@ -100,6 +100,7 @@ class Captioner(nn.Module):
         super(Captioner, self).__init__()
         self.idx2word = idx2word
         self.pad_id = idx2word.index('<PAD>')
+        self.unk_id = idx2word.index('<UNK>')
         self.sos_id = idx2word.index('<SOS>') if '<SOS>' in idx2word else self.pad_id
         self.eos_id = idx2word.index('<EOS>') if '<SOS>' in idx2word else self.pad_id
 
@@ -162,7 +163,8 @@ class Captioner(nn.Module):
             del kwargs['mode']
         return getattr(self, 'forward_' + mode)(*args, **kwargs)
 
-    def forward_xe(self, fc_feats, att_feats, concepts, captions, lengths, ss_prob=0.0):
+    def forward_xe(self, fc_feats, att_feats, concepts, captions, lengths,
+                   ss_prob=0.0):
         batch_size = fc_feats.size(0)
         outputs = []
         # outputs = fc_feats.new_zeros(batch_size, lengths[0], self.vocab_size)
@@ -197,8 +199,9 @@ class Captioner(nn.Module):
                 word_embs = self.word_embed(it)  # [bs, word_emb]
 
             # word_embs = self.word_embed(it)  # [bs, word_emb]
-            output, state = self.forward_step(word_embs, fc_feats, att_feats, cpt_feats,
-                                              p_att_feats, p_cpt_feats, state)
+            output, state = self.forward_step(
+                word_embs, fc_feats, att_feats, cpt_feats, p_att_feats,
+                p_cpt_feats, state)
             outputs.append(output)
 
         outputs = torch.stack(outputs, dim=1)  # [bs, max_len, vocab_size]
@@ -395,6 +398,7 @@ class Captioner(nn.Module):
                     output = output.squeeze(0)  # vocab_size
                     output[self.pad_id] = float('-inf')  # do not generate <PAD> and <SOS>
                     output[self.sos_id] = float('-inf')
+                    output[self.unk_id] = float('-inf')
                     if decoding_constraint:  # do not generate last step word
                         output[last_word_id] = float('-inf')
                     output = output.softmax(dim=-1)

@@ -64,6 +64,21 @@ def parse_opt():
     parser.add_argument('--rl_fact_times', type=int, default=1)
     parser.add_argument('--rl_senti_times', type=int, default=2)
 
+    # xe_joint
+    parser.add_argument('--xe_joint_lrs', type=json.loads,
+                        default='{"cap_lr": 4e-5, "senti_lr": 4e-5, "dis_lr": 4e-4, "cla_lr": 4e-4, "tra_lr": 4e-4}')
+    parser.add_argument('--xe_joint_bs', type=int, default=80)
+    parser.add_argument('--xe_joint_num_works', type=int, default=2)
+    parser.add_argument('--xe_joint_resume', type=str, default='')
+    parser.add_argument('--xe_joint_xe_resume', type=str, default='./checkpoint/xe/model-xe-20.pth')
+    parser.add_argument('--xe_joint_senti_resume', type=str, default='./checkpoint/sentiment/model-10.pth')
+    parser.add_argument('--xe_joint_epochs', type=int, default=30)
+    parser.add_argument('--xe_joint_fact_times', type=int, default=1)
+    parser.add_argument('--xe_joint_senti_times', type=int, default=2)
+
+    parser.add_argument('--xe_joint_hyperparams', type=json.loads,
+                        default='{"hp_dis": 0.2, "hp_cls": 1, "hp_tra": 5}')
+
     # common
     parser.add_argument('--idx2word', type=str, default='./data/captions/idx2word.json')
     parser.add_argument('--img_captions', type=str, default='./data/captions/img_captions.json')

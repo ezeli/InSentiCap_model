@@ -23,7 +23,7 @@ def compute_ppl(captions_file_prefix):
         lm = lms[sentiments[cap['image_id']]]
         caption = cap['caption']
         caption = caption.split()
-        caption = [str(word2idx[w]) for w in caption]
+        caption = [str(word2idx[w]) for w in caption] + ['2']
         caption = ' '.join(caption)
         full_scores = lm.full_scores(caption, bos=True, eos=True)
         lp, _, _ = zip(*full_scores)
