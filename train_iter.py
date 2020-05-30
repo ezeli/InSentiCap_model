@@ -33,6 +33,21 @@ def train():
     for i, w in enumerate(idx2word):
         word2idx[w] = i
 
+    print('====> process image captions begin')
+    captions_id = {}
+    for split, caps in img_captions.items():
+        print('convert %s captions to index' % split)
+        captions_id[split] = {}
+        for fn, seqs in tqdm.tqdm(caps.items()):
+            tmp = []
+            for seq in seqs:
+                tmp.append([word2idx['<SOS>']] +
+                           [word2idx.get(w, None) or word2idx['<UNK>'] for w in seq] +
+                           [word2idx['<EOS>']])
+            captions_id[split][fn] = tmp
+    img_captions = captions_id
+    print('====> process image captions end')
+
     print('====> process image det_concepts begin')
     det_concepts_id = {}
     for fn, cpts in tqdm.tqdm(img_det_concepts.items()):

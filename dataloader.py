@@ -335,7 +335,7 @@ def get_iter_fact_dataloader(fc_feats, att_feats, img_captions, img_det_concepts
                                  num_workers=num_workers,
                                  collate_fn=create_collate_fn(
                                      'iter_fact', pad_index=pad_index,
-                                     max_sql_len=max_seq_len,
+                                     max_sql_len=max_seq_len + 1,
                                      num_concepts=num_concepts,
                                      num_sentiments=num_sentiments))
     return dataloader
