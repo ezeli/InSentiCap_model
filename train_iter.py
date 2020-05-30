@@ -184,7 +184,7 @@ def train():
             print('----------test')
             results = []
             det_sentis = {}
-            for fns, fc_feats, att_feats, cpts_tensor, sentis_tensor in \
+            for fns, fc_feats, att_feats, (_, _), cpts_tensor, sentis_tensor in \
                     tqdm.tqdm(fact_test_data):
                 fc_feats = fc_feats.to(opt.device)
                 att_feats = att_feats.to(opt.device)
