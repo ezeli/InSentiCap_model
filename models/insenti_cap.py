@@ -45,7 +45,7 @@ class InSentiCap(nn.Module):
             sentis, caps = zip(*caps)
 
         lengths = [min(len(c), max_len) for c in caps]
-        cap_tensor = torch.LongTensor(len(caps), max(lengths)).to(device).fill_(self.pad_id)
+        cap_tensor = torch.LongTensor(len(caps), max_len).to(device).fill_(self.pad_id)
         for i, c in enumerate(caps):
             end_cap = lengths[i]
             cap_tensor[i, :end_cap] = torch.LongTensor(c[:end_cap])
@@ -62,7 +62,7 @@ class InSentiCap(nn.Module):
         device = next(self.parameters()).device
         for data_item in tqdm.tqdm(data):
             if data_type == 'fact':
-                _, fc_feats, att_feats, (caps_tensor, lengths), cpts_tensor, sentis_tensor = data_item
+                _, fc_feats, att_feats, (caps_tensor, xe_lengths), cpts_tensor, sentis_tensor = data_item
                 caps_tensor = caps_tensor.to(device)
             elif data_type == 'senti':
                 _, fc_feats, att_feats, cpts_tensor, sentis_tensor, senti_labels = data_item
@@ -78,20 +78,19 @@ class InSentiCap(nn.Module):
             del data_item
 
             det_sentis, det_senti_features = self.senti_detector(att_feats)  # [bs, num_sentis], [bs, 14, 14]
+            xe_out, cap_out, _ = self.captioner(
+                fc_feats, att_feats, cpts_tensor, det_senti_features,
+                sentis_tensor, self.max_seq_length, mode='ft')
+
             if data_type == 'fact':
                 senti_labels = det_sentis.argmax(-1).detach()  # bs
                 s_loss = 0
-
-                xe_out = self.captioner(fc_feats, att_feats, cpts_tensor, caps_tensor,
-                                        lengths, ss_prob=0.25, mode='xe')
-                real = pack_padded_sequence(caps_tensor[:, 1:], lengths, batch_first=True)[0]
+                xe_out = pack_padded_sequence(xe_out, xe_lengths, batch_first=True)[0]
+                real = pack_padded_sequence(caps_tensor[:, 1:], xe_lengths, batch_first=True)[0]
                 xe_loss = self.cap_crit(xe_out, real)
             else:
                 s_loss = self.senti_crit(det_sentis, senti_labels)
                 xe_loss = 0
-            cap_out, lengths = self.captioner(
-                fc_feats, att_feats, cpts_tensor, det_senti_features,
-                sentis_tensor, self.max_seq_length, mode='ft')
 
             d_real_labels = torch.ones(bs).to(device)
             d_fake_labels = torch.zeros(bs).to(device)

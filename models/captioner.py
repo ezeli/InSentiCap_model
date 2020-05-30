@@ -225,6 +225,7 @@ class Captioner(nn.Module):
         p_cpt_feats = self.cpt2att(cpt_feats)  # [bs, num_cpts, att_hid]
         p_senti_word_feats = self.senti2att(senti_word_feats)  # [bs, num_stmts, att_hid]
 
+        xe_outputs = []
         state = self.init_hidden(batch_size)
         it = concepts.new_zeros(batch_size).fill_(self.sos_id)
         word_embs = self.word_embed(it)  # [bs, word_dim]
@@ -235,6 +236,7 @@ class Captioner(nn.Module):
                                               p_att_feats, p_cpt_feats, state,
                                               senti_feats, senti_word_feats,
                                               p_senti_word_feats)
+            xe_outputs.append(output)
             output = torch.softmax(output, dim=-1)  # [bs, vocab]
             # TODO: select max value
             # it = output.argmax(-1)  # bs
@@ -245,8 +247,8 @@ class Captioner(nn.Module):
                 unfinished = it != self.eos_id
             else:
                 unfinished = unfinished * (it != self.eos_id)
-            if unfinished.sum() == 0:
-                break
+            # if unfinished.sum() == 0:
+            #     break
             unfinishs.append(unfinished)
             if unfinished.sum() != batch_size:
                 end_idx = (~unfinished).nonzero().view(-1)
@@ -254,9 +256,10 @@ class Captioner(nn.Module):
             outputs.append(out)  # output do not contain eos, replace with 0
             word_embs = out.detach()
         outputs = torch.stack(outputs, dim=1)  # [bs, max_len, word_dim]
+        xe_outputs = torch.stack(xe_outputs, dim=1)  # [bs, max_len, vocab_size]
         unfinishs = torch.stack(unfinishs, dim=1)  # [bs, max_len]
         lengths = unfinishs.sum(dim=-1)  # bs
-        return outputs, lengths
+        return xe_outputs, outputs, lengths
 
     def forward_rl(self, fc_feats, att_feats, concepts,
                    senti_feats, sentiments, max_seq_len, sample_max):
