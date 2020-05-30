@@ -27,7 +27,7 @@ class InSentiCap(nn.Module):
         self.classifier = SentimentClassifier(num_senti, settings)
         self.translator = BackTranslator(num_senti, settings)
 
-        self.cap_optim, _ = self.captioner.get_optim_criterion(lrs['cap_lr'])
+        self.cap_optim, self.cap_crit = self.captioner.get_optim_criterion(lrs['cap_lr'])
         self.senti_optim, self.senti_crit = self.senti_detector.get_optim_criterion(lrs['senti_lr'])
         self.dis_optim, self.dis_crit = self.discriminator.get_optim_criterion(lrs['dis_lr'])
         self.cls_optim, self.cls_crit = self.classifier.get_optim_criterion(lrs['cla_lr'])
@@ -58,12 +58,12 @@ class InSentiCap(nn.Module):
 
     def forward(self, data, data_type, training):
         self.train(training)
-        all_losses = torch.FloatTensor(5).fill_(0)
+        all_losses = torch.FloatTensor(6).fill_(0)
         device = next(self.parameters()).device
         for data_item in tqdm.tqdm(data):
             if data_type == 'fact':
-                _, fc_feats, att_feats, cpts_tensor, sentis_tensor = data_item
-                senti_labels = None
+                _, fc_feats, att_feats, (caps_tensor, lengths), cpts_tensor, sentis_tensor = data_item
+                caps_tensor = caps_tensor.to(device)
             elif data_type == 'senti':
                 _, fc_feats, att_feats, cpts_tensor, sentis_tensor, senti_labels = data_item
                 senti_labels = senti_labels.to(device)
@@ -81,8 +81,14 @@ class InSentiCap(nn.Module):
             if data_type == 'fact':
                 senti_labels = det_sentis.argmax(-1).detach()  # bs
                 s_loss = 0
+
+                xe_out = self.captioner(fc_feats, att_feats, cpts_tensor, caps_tensor,
+                                        lengths, ss_prob=0.25, mode='xe')
+                real = pack_padded_sequence(caps_tensor[:, 1:], lengths, batch_first=True)[0]
+                xe_loss = self.cap_crit(xe_out, real)
             else:
                 s_loss = self.senti_crit(det_sentis, senti_labels)
+                xe_loss = 0
             cap_out, lengths = self.captioner(
                 fc_feats, att_feats, cpts_tensor, det_senti_features,
                 sentis_tensor, self.max_seq_length, mode='ft')
@@ -131,12 +137,14 @@ class InSentiCap(nn.Module):
             t_out = self.translator(cap_out, senti_labels)  # [bs, fc_feat_dim]
             t_loss = self.tra_crit(t_out, fc_feats)
 
-            cap_loss = -self.hp_dis * d_loss + self.hp_cls * c_loss + self.hp_tra * t_loss
-            all_losses[0] += int(cap_loss)
-            all_losses[1] += int(s_loss)
-            all_losses[2] += int(d_loss)
-            all_losses[3] += int(c_loss)
-            all_losses[4] += int(t_loss)
+            ft_loss = -self.hp_dis * d_loss + self.hp_cls * c_loss + self.hp_tra * t_loss
+            cap_loss = ft_loss + xe_loss
+            all_losses[0] += float(cap_loss)
+            all_losses[1] += float(xe_loss)
+            all_losses[2] += float(s_loss)
+            all_losses[3] += float(d_loss)
+            all_losses[4] += float(c_loss)
+            all_losses[5] += float(t_loss)
 
             if training:
                 if data_type == 'senti':

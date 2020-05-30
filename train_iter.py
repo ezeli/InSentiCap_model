@@ -73,16 +73,16 @@ def train():
     print('====> process image senti_labels end')
 
     fact_train_data = get_iter_fact_dataloader(
-        opt.fc_feats, opt.att_feats, img_det_concepts, img_det_sentiments,
-        img_captions['train'].keys(), idx2word.index('<PAD>'),
+        opt.fc_feats, opt.att_feats, img_captions['train'], img_det_concepts, img_det_sentiments,
+        idx2word.index('<PAD>'), opt.max_seq_len,
         opt.num_concepts, opt.num_sentiments, opt.iter_bs, opt.iter_num_works)
     fact_val_data = get_iter_fact_dataloader(
-        opt.fc_feats, opt.att_feats, img_det_concepts, img_det_sentiments,
-        img_captions['val'].keys(), idx2word.index('<PAD>'),
+        opt.fc_feats, opt.att_feats, img_captions['val'], img_det_concepts, img_det_sentiments,
+        idx2word.index('<PAD>'), opt.max_seq_len,
         opt.num_concepts, opt.num_sentiments, opt.iter_bs, opt.iter_num_works, shuffle=False)
     fact_test_data = get_iter_fact_dataloader(
-        opt.fc_feats, opt.att_feats, img_det_concepts, img_det_sentiments,
-        img_captions['test'].keys(), idx2word.index('<PAD>'),
+        opt.fc_feats, opt.att_feats, img_captions['test'], img_det_concepts, img_det_sentiments,
+        idx2word.index('<PAD>'), opt.max_seq_len,
         opt.num_concepts, opt.num_sentiments, opt.iter_bs, opt.iter_num_works, shuffle=False)
     del img_captions
 

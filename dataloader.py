@@ -71,9 +71,23 @@ def create_collate_fn(name, pad_index=0, max_sql_len=21, num_concepts=10,
         return fns, fc_feats, att_feats, cpts_tensor, sentis_tensor, senti_labels
 
     def iter_fact_collate_fn(dataset):
-        fns, fc_feats, att_feats, cpts, sentis = zip(*dataset)
+        tmp = []
+        for fn, caps_idx, fc_feat, att_feat, cpts_idx, sentis_idx in dataset:
+            for cap in caps_idx:
+                tmp.append([fn, cap, fc_feat, att_feat, cpts_idx, sentis_idx])
+        dataset = tmp
+        dataset.sort(key=lambda p: len(p[1]), reverse=True)
+
+        fns, caps, fc_feats, att_feats, cpts, sentis = zip(*dataset)
         fc_feats = torch.FloatTensor(np.array(fc_feats))
         att_feats = torch.FloatTensor(np.array(att_feats))
+
+        lengths = [min(len(c), max_sql_len) for c in caps]
+        caps_tensor = torch.LongTensor(len(caps), lengths[0]).fill_(pad_index)
+        for i, c in enumerate(caps):
+            end = lengths[i]
+            caps_tensor[i, :end] = torch.LongTensor(c[:end])
+        lengths = [l-1 for l in lengths]
 
         cpts_tensor = torch.LongTensor(len(cpts), num_concepts).fill_(pad_index)
         for i, c in enumerate(cpts):
@@ -85,7 +99,7 @@ def create_collate_fn(name, pad_index=0, max_sql_len=21, num_concepts=10,
             end = min(len(s), num_sentiments)
             sentis_tensor[i, :end] = torch.LongTensor(s[:end])
 
-        return fns, fc_feats, att_feats, cpts_tensor, sentis_tensor
+        return fns, fc_feats, att_feats, (caps_tensor, lengths), cpts_tensor, sentis_tensor
 
     def iter_senti_collate_fn(dataset):
         fns, fc_feats, att_feats, cpts, sentis, senti_labels = zip(*dataset)
@@ -210,26 +224,26 @@ class RLSentiDataset(data.Dataset):
 
 
 class IterFactDataset(data.Dataset):
-    def __init__(self, fc_feats, att_feats, img_det_concepts,
-                 img_det_sentiments, fns):
+    def __init__(self, fc_feats, att_feats, img_captions, img_det_concepts,
+                 img_det_sentiments):
         self.fc_feats = fc_feats
         self.att_feats = att_feats
+        self.captions = list(img_captions.items())
         self.det_concepts = img_det_concepts  # {fn: ['a','b',...])}
         self.det_sentiments = img_det_sentiments  # {fn: ['a','b',...])}
-        self.fns = list(fns)
 
     def __getitem__(self, index):
-        fn = self.fns[index]
+        fn, caps = self.captions[index]
         f_fc = h5py.File(self.fc_feats, mode='r')
         f_att = h5py.File(self.att_feats, mode='r')
         fc_feat = f_fc[fn][:]
         att_feat = f_att[fn][:]
         cpts = self.det_concepts[fn]
         sentis = self.det_sentiments[fn]
-        return fn, np.array(fc_feat), np.array(att_feat), cpts, sentis
+        return fn, caps, np.array(fc_feat), np.array(att_feat), cpts, sentis
 
     def __len__(self):
-        return len(self.fns)
+        return len(self.captions)
 
 
 class IterSentiDataset(data.Dataset):
@@ -309,18 +323,19 @@ def get_caption_dataloader(fc_feats, att_feats, img_captions, img_det_concepts,
     return dataloader
 
 
-def get_iter_fact_dataloader(fc_feats, att_feats, img_det_concepts,
-                             img_det_sentiments, fns, pad_index,
+def get_iter_fact_dataloader(fc_feats, att_feats, img_captions, img_det_concepts,
+                             img_det_sentiments, pad_index, max_seq_len,
                              num_concepts, num_sentiments,
                              batch_size, num_workers=0, shuffle=True):
-    dataset = IterFactDataset(fc_feats, att_feats, img_det_concepts,
-                              img_det_sentiments, fns)
+    dataset = IterFactDataset(fc_feats, att_feats, img_captions, img_det_concepts,
+                              img_det_sentiments)
     dataloader = data.DataLoader(dataset,
-                                 batch_size=batch_size,
+                                 batch_size=batch_size // 5,
                                  shuffle=shuffle,
                                  num_workers=num_workers,
                                  collate_fn=create_collate_fn(
                                      'iter_fact', pad_index=pad_index,
+                                     max_sql_len=max_seq_len,
                                      num_concepts=num_concepts,
                                      num_sentiments=num_sentiments))
     return dataloader
