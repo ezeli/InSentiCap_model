@@ -3,6 +3,7 @@ import torch
 from torch.utils import data
 import numpy as np
 import h5py
+import random
 
 
 def create_collate_fn(name, pad_index=0, max_sql_len=21, num_concepts=10,
@@ -240,7 +241,7 @@ class IterFactDataset(data.Dataset):
         att_feat = f_att[fn][:]
         cpts = self.det_concepts[fn]
         sentis = self.det_sentiments[fn]
-        return fn, caps, np.array(fc_feat), np.array(att_feat), cpts, sentis
+        return fn, random.sample(caps, 1), np.array(fc_feat), np.array(att_feat), cpts, sentis
 
     def __len__(self):
         return len(self.captions)
@@ -330,7 +331,7 @@ def get_iter_fact_dataloader(fc_feats, att_feats, img_captions, img_det_concepts
     dataset = IterFactDataset(fc_feats, att_feats, img_captions, img_det_concepts,
                               img_det_sentiments)
     dataloader = data.DataLoader(dataset,
-                                 batch_size=batch_size // 5,
+                                 batch_size=batch_size,
                                  shuffle=shuffle,
                                  num_workers=num_workers,
                                  collate_fn=create_collate_fn(
