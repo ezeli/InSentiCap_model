@@ -36,6 +36,8 @@ class InSentiCap(nn.Module):
         self.hp_dis, self.hp_cls, self.hp_tra = \
             hyperparams['hp_dis'], hyperparams['hp_cls'], hyperparams['hp_tra']
 
+        self.hp_xe = 0.5
+
         self.real_captions = real_captions  # {'fact': [[2,44,...],...], 'senti': [(0, [2, 44]),..]}
 
     def get_batch_real_caps(self, caps_type, batch_size, max_len):
@@ -137,7 +139,8 @@ class InSentiCap(nn.Module):
             t_loss = self.tra_crit(t_out, fc_feats)
 
             ft_loss = -self.hp_dis * d_loss + self.hp_cls * c_loss + self.hp_tra * t_loss
-            cap_loss = ft_loss + xe_loss
+            cap_loss = (1 - self.hp_xe) * ft_loss + self.hp_xe * xe_loss
+            self.hp_xe *= 0.8
             all_losses[0] += float(cap_loss)
             all_losses[1] += float(xe_loss)
             all_losses[2] += float(s_loss)
