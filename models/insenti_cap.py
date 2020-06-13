@@ -90,9 +90,11 @@ class InSentiCap(nn.Module):
                 xe_out = pack_padded_sequence(xe_out, xe_lengths, batch_first=True)[0]
                 real = pack_padded_sequence(caps_tensor[:, 1:], xe_lengths, batch_first=True)[0]
                 xe_loss = self.cap_crit(xe_out, real)
+                hp_xe = self.hp_xe
             else:
                 s_loss = self.senti_crit(det_sentis, senti_labels)
                 xe_loss = 0
+                hp_xe = 0
 
             d_real_labels = torch.ones(bs).to(device)
             d_fake_labels = torch.zeros(bs).to(device)
@@ -139,8 +141,7 @@ class InSentiCap(nn.Module):
             t_loss = self.tra_crit(t_out, fc_feats)
 
             ft_loss = -self.hp_dis * d_loss + self.hp_cls * c_loss + self.hp_tra * t_loss
-            cap_loss = (1 - self.hp_xe) * ft_loss + self.hp_xe * xe_loss
-            self.hp_xe *= 0.8
+            cap_loss = (1 - hp_xe) * ft_loss + hp_xe * xe_loss
             all_losses[0] += float(cap_loss)
             all_losses[1] += float(xe_loss)
             all_losses[2] += float(s_loss)
@@ -175,6 +176,8 @@ class InSentiCap(nn.Module):
 
             del fc_feats, att_feats, cpts_tensor, sentis_tensor, senti_labels
 
+        if training and data_type == 'fact':
+            self.hp_xe *= 0.8
         return list((all_losses/len(data)).detach().numpy())
 
     def sample(self, fc_feats, att_feats, cpts_tensor, sentis_tensor,

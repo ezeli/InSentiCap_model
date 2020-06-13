@@ -15,10 +15,11 @@ from models.insenti_cap import InSentiCap
 from dataloader import get_iter_fact_dataloader, get_iter_senti_dataloader
 
 
-# def clip_gradient(optimizer, grad_clip):
-#     for group in optimizer.param_groups:
-#         for param in group['params']:
-#             param.grad.data.clamp_(-grad_clip, grad_clip)
+def clip_gradient(optimizer, grad_clip):
+    for group in optimizer.param_groups:
+        for param in group['params']:
+            if param.grad is not None:
+                param.grad.data.clamp_(-grad_clip, grad_clip)
 
 
 def train():
@@ -110,9 +111,13 @@ def train():
         opt.senti_fc_feats, opt.senti_att_feats, img_det_concepts, img_det_sentiments,
         img_senti_labels['val'], idx2word.index('<PAD>'),
         opt.num_concepts, opt.num_sentiments, opt.iter_bs, opt.iter_num_works, shuffle=False)
+    senti_test_data = get_iter_senti_dataloader(
+        opt.senti_fc_feats, opt.senti_att_feats, img_det_concepts, img_det_sentiments,
+        img_senti_labels['test'], idx2word.index('<PAD>'),
+        opt.num_concepts, opt.num_sentiments, opt.iter_bs, opt.iter_num_works, shuffle=False)
 
     in_senti_cap = InSentiCap(
-        idx2word, opt.max_sql_len, opt.sentiment_categories, opt.iter_lrs,
+        idx2word, opt.max_seq_len, opt.sentiment_categories, opt.iter_lrs,
         opt.iter_hyperparams, real_captions, opt.settings)
     in_senti_cap.to(opt.device)
 
@@ -123,8 +128,8 @@ def train():
             'opt.settings and resume model settings are different'
         assert idx2word == chkpoint['idx2word'], \
             'idx2word and resume model idx2word are different'
-        assert opt.max_sql_len == chkpoint['max_seq_length'], \
-            'opt.max_seq_length and resume model max_seq_length are different'
+        assert opt.max_seq_len == chkpoint['max_seq_lenth'], \
+            'opt.max_seq_lenth and resume model max_seq_lenth are different'
         assert opt.sentiment_categories == chkpoint['sentiment_categories'], \
             'opt.sentiment_categories and resume model sentiment_categories are different'
         assert opt.iter_hyperparams == chkpoint['iter_hyperparams'], \
@@ -139,7 +144,7 @@ def train():
             'opt.settings and resume model settings are different'
         assert idx2word == chkpoint['idx2word'], \
             'idx2word and resume model idx2word are different'
-        in_senti_cap.captioner.load_state_dict(chkpoint['model'])
+        in_senti_cap.captioner.load_state_dict(chkpoint['model'], strict=False)
         if opt.iter_senti_resume:
             print("====> loading iter_senti_resume '{}'".format(opt.iter_senti_resume))
             ch = torch.load(opt.iter_senti_resume, map_location=lambda s, l: s)
@@ -170,7 +175,7 @@ def train():
         for i in range(opt.iter_fact_times):
             print('----------iter_fact_times: %d' % i)
             fact_train_loss = in_senti_cap(fact_train_data, data_type='fact', training=True)
-            print('fact_train_loss: %s' % fact_train_loss)
+            print('fact_train_loss: %s' % fact_train_loss, 'hp_xe: %s' % in_senti_cap.hp_xe)
         # torch.save(in_senti_cap.state_dict(), os.path.join(checkpoint, 'in_senti_cap_%s.pth' % epoch))
         with torch.no_grad():
             torch.cuda.empty_cache()
@@ -181,36 +186,63 @@ def train():
             print('fact_val_loss: %s' % fact_val_loss)
 
             # test
-            print('----------test')
-            results = []
-            det_sentis = {}
-            for fns, fc_feats, att_feats, (_, _), cpts_tensor, sentis_tensor in \
-                    tqdm.tqdm(fact_test_data):
-                fc_feats = fc_feats.to(opt.device)
-                att_feats = att_feats.to(opt.device)
-                cpts_tensor = cpts_tensor.to(opt.device)
-                sentis_tensor = sentis_tensor.to(opt.device)
+            results = defaultdict(list)
+            det_sentis = defaultdict(dict)
+            senti_imgs_num = 0
+            senti_imgs_wrong_num = 0
+            for data_type, data in [('fact', fact_test_data), ('senti', senti_test_data)]:
+                print('----------test:', data_type)
+                for data_item in tqdm.tqdm(data):
+                    if data_type == 'fact':
+                        fns, fc_feats, att_feats, (_, _), cpts_tensor, sentis_tensor = data_item
+                    elif data_type == 'senti':
+                        fns, fc_feats, att_feats, cpts_tensor, sentis_tensor, senti_labels = data_item
+                        senti_labels = senti_labels.to(opt.device)
+                        senti_labels = [opt.sentiment_categories[int(idx)] for idx in senti_labels]
+                    else:
+                        raise Exception('data_type(%s) is wrong!' % data_type)
+                    fc_feats = fc_feats.to(opt.device)
+                    att_feats = att_feats.to(opt.device)
+                    cpts_tensor = cpts_tensor.to(opt.device)
+                    sentis_tensor = sentis_tensor.to(opt.device)
 
-                for i, fn in enumerate(fns):
-                    captions, det_img_sentis = in_senti_cap.sample(
-                        fc_feats[i], att_feats[i], cpts_tensor[i],
-                        sentis_tensor[i], beam_size=opt.beam_size)
-                    results.append({'image_id': fn, 'caption': captions[0]})
-                    det_sentis[fn] = det_img_sentis[0]
+                    for i, fn in enumerate(fns):
+                        captions, det_img_sentis = in_senti_cap.sample(
+                            fc_feats[i], att_feats[i], cpts_tensor[i],
+                            sentis_tensor[i], beam_size=opt.beam_size)
+                        results[data_type].append({'image_id': fn, 'caption': captions[0]})
+                        det_sentis[data_type][fn] = det_img_sentis[0]
+                        if data_type == 'senti':
+                            senti_imgs_num += 1
+                            if det_img_sentis[0] != senti_labels[i]:
+                                senti_imgs_wrong_num += 1
 
-            json.dump(results, open(os.path.join(result_dir, 'result_%d.json' % epoch), 'w'))
-            json.dump(det_sentis, open(os.path.join(result_dir, 'result_%d_sentis.json' % epoch), 'w'))
+            det_sentis_wrong_rate = senti_imgs_wrong_num / senti_imgs_num
 
-            sents = defaultdict(str)
-            for res in results:
-                fn = res['image_id']
-                caption = res['caption'].split()
-                caption = [str(word2idx[w]) for w in caption] + [str(word2idx['<EOS>'])]
-                caption = ' '.join(caption) + '\n'
-                sents[det_sentis[fn]] += caption
-            for senti in sents:
-                with open(os.path.join(result_dir, 'result_%d_%s.txt' % (epoch, senti)), 'w') as f:
-                    f.write(sents[senti])
+            for data_type in results:
+                json.dump(results[data_type], open(os.path.join(result_dir, 'result_%d_%s.json' % (epoch, data_type)), 'w'))
+                wr = det_sentis_wrong_rate
+                if data_type == 'fact':
+                    wr = 0
+                json.dump(det_sentis[data_type], open(os.path.join(result_dir, 'result_%d_sentis_%s_%s.json' % (epoch, wr, data_type)), 'w'))
+
+            sents = {'fact': defaultdict(str), 'senti': defaultdict(str)}
+            sents_w = {'fact': defaultdict(str), 'senti': defaultdict(str)}
+            for data_type, ress in results.items():
+                for res in ress:
+                    fn = res['image_id']
+                    caption = res['caption']
+                    senti = det_sentis[data_type][fn]
+                    sents_w[data_type][senti] += caption + '\n'
+                    caption = [str(word2idx[w]) for w in caption.split()] + [str(word2idx['<EOS>'])]
+                    caption = ' '.join(caption) + '\n'
+                    sents[data_type][senti] += caption
+            for data_type in sents:
+                for senti in sents[data_type]:
+                    with open(os.path.join(result_dir, 'result_%d_%s_%s.txt' % (epoch, senti, data_type)), 'w') as f:
+                        f.write(sents[data_type][senti])
+                    with open(os.path.join(result_dir, 'result_%d_%s_%s_w.txt' % (epoch, senti, data_type)), 'w') as f:
+                        f.write(sents_w[data_type][senti])
 
         if previous_loss is not None and senti_val_loss[0] > previous_loss[0] \
                 and fact_val_loss[0] > previous_loss[1]:
@@ -222,24 +254,19 @@ def train():
                     param_group['lr'] = lr
         previous_loss = [senti_val_loss[0], fact_val_loss[0]]
 
-        print('senti_train_loss: %.4f, fact_train_loss: %.4f, '
-              'senti_val_loss: %.4f, fact_val_loss: %.4f' %
-              (senti_train_loss[0], fact_train_loss[0],
-               senti_val_loss[0], fact_val_loss[0]))
-        if epoch in [0, 1, 2, 3, 5, 7, 10, 13, 15, 17, 20, 23, 25, 27, 29]:
+        if epoch > -1:
             chkpoint = {
                 'epoch': epoch,
                 'model': in_senti_cap.state_dict(),
                 'settings': opt.settings,
                 'idx2word': idx2word,
-                'max_seq_length': opt.max_sql_len,
+                'max_seq_lenth': opt.max_seq_len,
                 'sentiment_categories': opt.sentiment_categories,
                 'iter_hyperparams': opt.iter_hyperparams,
             }
             checkpoint_path = os.path.join(
-                checkpoint, 'model_%d_%.4f_%.4f_%.4f_%.4f_%s.pth' % (
-                epoch, senti_train_loss[0], fact_train_loss[0], senti_val_loss[0],
-                fact_val_loss[0], time.strftime('%m%d-%H%M')))
+                checkpoint, 'model_%d_%.4f_%.4f_%s.pth' % (
+                epoch, senti_val_loss[0], fact_val_loss[0], time.strftime('%m%d-%H%M')))
             torch.save(chkpoint, checkpoint_path)
 
 

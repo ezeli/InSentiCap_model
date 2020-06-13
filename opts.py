@@ -43,7 +43,7 @@ def parse_opt():
     parser.add_argument('--iter_bs', type=int, default=80)
     parser.add_argument('--iter_num_works', type=int, default=2)
     parser.add_argument('--iter_resume', type=str, default='')
-    parser.add_argument('--iter_xe_resume', type=str, default='./checkpoint/xe/model-xe-20.pth')
+    parser.add_argument('--iter_xe_resume', type=str, default='./checkpoint/xe/model-xe-20-new.pth')
     parser.add_argument('--iter_senti_resume', type=str, default='./checkpoint/sentiment/model-10.pth')
     parser.add_argument('--iter_epochs', type=int, default=30)
     parser.add_argument('--iter_fact_times', type=int, default=1)
@@ -131,5 +131,5 @@ def parse_opt():
 
     args.settings = settings
     args.use_gpu = torch.cuda.is_available()
-    args.device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
+    args.device = torch.device('cuda:0') if args.use_gpu else torch.device('cpu')
     return args

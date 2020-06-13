@@ -103,6 +103,7 @@ class Captioner(nn.Module):
         self.unk_id = idx2word.index('<UNK>')
         self.sos_id = idx2word.index('<SOS>') if '<SOS>' in idx2word else self.pad_id
         self.eos_id = idx2word.index('<EOS>') if '<SOS>' in idx2word else self.pad_id
+        self.dropout_p = settings['dropout_p']
 
         self.vocab_size = len(idx2word)
         self.word_embed = nn.Sequential(nn.Embedding(self.vocab_size, settings['word_emb_dim'],
