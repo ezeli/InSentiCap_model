@@ -28,9 +28,10 @@ def parse_opt():
     # train full model
     # xe
     parser.add_argument('--xe_lr', type=float, default=4e-4)
-    parser.add_argument('--xe_bs', type=int, default=80)
+    parser.add_argument('--xe_bs', type=int, default=40)
     parser.add_argument('--xe_resume', type=str, default='')
     parser.add_argument('--xe_epochs', type=int, default=40)
+    parser.add_argument('--xe_num_works', type=int, default=2)
 
     parser.add_argument('--scheduled_sampling_start', type=int, default=0)
     parser.add_argument('--scheduled_sampling_increase_every', type=int, default=5)
