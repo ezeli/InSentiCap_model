@@ -6,7 +6,7 @@ import h5py
 import random
 
 
-def create_collate_fn(name, pad_index=0, max_sql_len=21, num_concepts=10,
+def create_collate_fn(name, pad_index=0, max_seq_len=17, num_concepts=10,
                       num_sentiments=5):
     def caption_collate_fn(dataset):
         tmp = []
@@ -19,7 +19,7 @@ def create_collate_fn(name, pad_index=0, max_sql_len=21, num_concepts=10,
         fc_feats = torch.FloatTensor(np.array(fc_feats))
         att_feats = torch.FloatTensor(np.array(att_feats))
 
-        lengths = [min(len(c), max_sql_len) for c in caps]
+        lengths = [min(len(c), max_seq_len) for c in caps]
         caps_tensor = torch.LongTensor(len(caps), lengths[0]).fill_(pad_index)
         for i, c in enumerate(caps):
             end = lengths[i]
@@ -35,11 +35,26 @@ def create_collate_fn(name, pad_index=0, max_sql_len=21, num_concepts=10,
 
     def rl_fact_collate_fn(dataset):
         ground_truth = {}
-        for fn, caps, _, _, _, _ in dataset:
-            ground_truth[fn] = [c[:max_sql_len] for c in caps]
-        fns, _, fc_feats, att_feats, cpts, sentis = zip(*dataset)
+        tmp = []
+        for fn, caps_idx, fc_feat, att_feat, cpts_idx, sentis_idx in dataset:
+            ground_truth[fn] = [c[:max_seq_len] for c in caps_idx]
+            for cap in caps_idx:
+                tmp.append([fn, cap, fc_feat, att_feat, cpts_idx, sentis_idx])
+            # cap = random.sample(caps_idx, 1)[0]
+            # tmp.append([fn, cap, fc_feat, att_feat, cpts_idx, sentis_idx])
+        dataset = tmp
+        dataset.sort(key=lambda p: len(p[1]), reverse=True)
+
+        fns, caps, fc_feats, att_feats, cpts, sentis = zip(*dataset)
         fc_feats = torch.FloatTensor(np.array(fc_feats))
         att_feats = torch.FloatTensor(np.array(att_feats))
+
+        lengths = [min(len(c), max_seq_len) for c in caps]
+        caps_tensor = torch.LongTensor(len(caps), lengths[0]).fill_(pad_index)
+        for i, c in enumerate(caps):
+            end = lengths[i]
+            caps_tensor[i, :end] = torch.LongTensor(c[:end])
+        lengths = [l - 1 for l in lengths]
 
         cpts_tensor = torch.LongTensor(len(cpts), num_concepts).fill_(pad_index)
         for i, c in enumerate(cpts):
@@ -51,7 +66,7 @@ def create_collate_fn(name, pad_index=0, max_sql_len=21, num_concepts=10,
             end = min(len(s), num_sentiments)
             sentis_tensor[i, :end] = torch.LongTensor(s[:end])
 
-        return fns, fc_feats, att_feats, cpts_tensor, sentis_tensor, ground_truth
+        return fns, fc_feats, att_feats, (caps_tensor, lengths), cpts_tensor, sentis_tensor, ground_truth
 
     def rl_senti_collate_fn(dataset):
         fns, fc_feats, att_feats, cpts, sentis, senti_labels = zip(*dataset)
@@ -83,7 +98,7 @@ def create_collate_fn(name, pad_index=0, max_sql_len=21, num_concepts=10,
         fc_feats = torch.FloatTensor(np.array(fc_feats))
         att_feats = torch.FloatTensor(np.array(att_feats))
 
-        lengths = [min(len(c), max_sql_len) for c in caps]
+        lengths = [min(len(c), max_seq_len) for c in caps]
         caps_tensor = torch.LongTensor(len(caps), lengths[0]).fill_(pad_index)
         for i, c in enumerate(caps):
             end = lengths[i]
@@ -149,28 +164,20 @@ def create_collate_fn(name, pad_index=0, max_sql_len=21, num_concepts=10,
 
 
 class CaptionDataset(data.Dataset):
-    def __init__(self, fc_feats, att_feats, img_captions, img_det_concepts, idx2word):
+    def __init__(self, fc_feats, att_feats, img_captions, img_det_concepts):
         self.fc_feats = fc_feats
         self.att_feats = att_feats
-        self.captions = list(img_captions.items())  # [(fn, [['a', 'b'],['a', 'b'],...]),...]
-        self.det_concepts = img_det_concepts  # {fn: ['a','b',...])}
-        self.word2idx = {}
-        for i, w in enumerate(idx2word):
-            self.word2idx[w] = i
+        self.captions = list(img_captions.items())  # [(fn, [[1, 2],[3, 4],...]),...]
+        self.det_concepts = img_det_concepts  # {fn: [1,2,...])}
 
     def __getitem__(self, index):
         fn, caps = self.captions[index]
-        fc_feat = self.fc_feats[fn][:]
-        att_feat = self.att_feats[fn][:]
+        f_fc = h5py.File(self.fc_feats, mode='r')
+        f_att = h5py.File(self.att_feats, mode='r')
+        fc_feat = f_fc[fn][:]
+        att_feat = f_att[fn][:]
         cpts = self.det_concepts[fn]
-        caps_idx = []
-        for cap in caps:
-            caps_idx.append([self.word2idx['<SOS>']]
-                            + [self.word2idx.get(w, None) or self.word2idx['<UNK>']
-                               for w in cap]
-                            + [self.word2idx['<EOS>']])
-        cpts_idx = [self.word2idx[w] for w in cpts]
-        return fn, np.array(fc_feat), np.array(att_feat), caps_idx, cpts_idx
+        return fn, np.array(fc_feat), np.array(att_feat), caps, cpts
 
     def __len__(self):
         return len(self.captions)
@@ -311,15 +318,15 @@ class SentiImageDataset(data.Dataset):
 
 
 def get_caption_dataloader(fc_feats, att_feats, img_captions, img_det_concepts,
-                           idx2word, pad_index, max_sql_len, num_concepts,
+                           pad_index, max_seq_len, num_concepts,
                            batch_size, num_workers=0, shuffle=True):
-    dataset = CaptionDataset(fc_feats, att_feats, img_captions, img_det_concepts, idx2word)
+    dataset = CaptionDataset(fc_feats, att_feats, img_captions, img_det_concepts)
     dataloader = data.DataLoader(dataset,
                                  batch_size=batch_size,
                                  shuffle=shuffle,
                                  num_workers=num_workers,
                                  collate_fn=create_collate_fn(
-                                     'caption', pad_index, max_sql_len + 1,
+                                     'caption', pad_index, max_seq_len + 1,
                                      num_concepts))
     return dataloader
 
@@ -336,7 +343,7 @@ def get_iter_fact_dataloader(fc_feats, att_feats, img_captions, img_det_concepts
                                  num_workers=num_workers,
                                  collate_fn=create_collate_fn(
                                      'iter_fact', pad_index=pad_index,
-                                     max_sql_len=max_seq_len + 1,
+                                     max_seq_len=max_seq_len + 1,
                                      num_concepts=num_concepts,
                                      num_sentiments=num_sentiments))
     return dataloader
@@ -365,12 +372,12 @@ def get_rl_fact_dataloader(fc_feats, att_feats, img_captions, img_det_concepts,
     dataset = RLFactDataset(fc_feats, att_feats, img_captions,
                             img_det_concepts, img_det_sentiments)
     dataloader = data.DataLoader(dataset,
-                                 batch_size=batch_size,
+                                 batch_size=batch_size // 5,
                                  shuffle=shuffle,
                                  num_workers=num_workers,
                                  collate_fn=create_collate_fn(
                                      'rl_fact', pad_index=pad_index,
-                                     max_sql_len=max_seq_len + 1,
+                                     max_seq_len=max_seq_len + 1,
                                      num_concepts=num_concepts,
                                      num_sentiments=num_sentiments))
     return dataloader

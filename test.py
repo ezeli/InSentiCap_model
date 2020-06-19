@@ -30,5 +30,5 @@ print("====> loaded checkpoint '{}', epoch: {}, train_mode: {}".
 decoder.to(opt.device)
 decoder.eval()
 
-rest, _ = decoder.sample(img_feat, beam_size=opt.beam_size, max_seq_len=opt.max_sql_len)
+rest, _ = decoder.sample(img_feat, beam_size=opt.beam_size, max_seq_len=opt.max_seq_len)
 print('generate captions:\n' + '\n'.join(rest))

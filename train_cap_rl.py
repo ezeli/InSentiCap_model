@@ -161,7 +161,7 @@ def train():
                 for i, fn in enumerate(fns):
                     captions, _ = model.sample(
                         fc_feats[i], att_feats[i], cpts_tensor[i],
-                        beam_size=opt.beam_size, max_seq_length=opt.max_seq_len)
+                        beam_size=opt.beam_size, max_seq_len=opt.max_seq_len)
                     results.append({'image_id': fn, 'caption': captions[0]})
 
             json.dump(results, open(os.path.join(result_dir, 'result_%d.json' % epoch), 'w'))

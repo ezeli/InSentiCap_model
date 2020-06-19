@@ -54,8 +54,8 @@ def train():
     elif train_mode == 'rl':
         raise Exception('"rl" mode need resume model')
 
-    train_data = get_dataloader(f_fc, captions['train'], decoder.pad_id, opt.max_sql_len+1, opt.batch_size)
-    val_data = get_dataloader(f_fc, captions['val'], decoder.pad_id, opt.max_sql_len+1, opt.batch_size, shuffle=False)
+    train_data = get_dataloader(f_fc, captions['train'], decoder.pad_id, opt.max_seq_len+1, opt.batch_size)
+    val_data = get_dataloader(f_fc, captions['val'], decoder.pad_id, opt.max_seq_len+1, opt.batch_size, shuffle=False)
 
     xe_criterion = nn.CrossEntropyLoss()
     if train_mode == 'rl':
@@ -72,11 +72,11 @@ def train():
 
             if training and train_mode == 'rl':
                 sample_captions, sample_logprobs = decoder(fc_feats, sample_max=0,
-                                                           max_seq_len=opt.max_sql_len, mode=train_mode)
+                                                           max_seq_len=opt.max_seq_len, mode=train_mode)
                 decoder.eval()
                 with torch.no_grad():
                     greedy_captions, _ = decoder(fc_feats, sample_max=1,
-                                                 max_seq_len=opt.max_sql_len, mode=train_mode)
+                                                 max_seq_len=opt.max_seq_len, mode=train_mode)
                 decoder.train()
                 reward = get_self_critical_reward(sample_captions, greedy_captions, fns, captions['train'],
                                                   decoder.sos_id, decoder.eos_id, ciderd_scorer)

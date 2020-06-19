@@ -13,12 +13,12 @@ from .sentiment_detector import SentimentDetector
 
 
 class InSentiCap(nn.Module):
-    def __init__(self, idx2word, max_seq_length, sentiment_categories, lrs,
+    def __init__(self, idx2word, max_seq_len, sentiment_categories, lrs,
                  hyperparams, real_captions, settings):
         super(InSentiCap, self).__init__()
         self.idx2word = idx2word
         self.pad_id = idx2word.index('<PAD>')
-        self.max_seq_length = max_seq_length
+        self.max_seq_len = max_seq_len
 
         self.captioner = Captioner(idx2word, settings)
         self.senti_detector = SentimentDetector(sentiment_categories, settings)
@@ -82,7 +82,7 @@ class InSentiCap(nn.Module):
             det_sentis, det_senti_features = self.senti_detector(att_feats)  # [bs, num_sentis], [bs, 14, 14]
             xe_out, cap_out, _ = self.captioner(
                 fc_feats, att_feats, cpts_tensor, det_senti_features,
-                sentis_tensor, self.max_seq_length, mode='ft')
+                sentis_tensor, self.max_seq_len, mode='ft')
 
             if data_type == 'fact':
                 senti_labels = det_sentis.argmax(-1).detach()  # bs
@@ -101,7 +101,7 @@ class InSentiCap(nn.Module):
             if training:  # We train D for 5 times more than G
                 for _ in range(4):
                     real_caps, _ = self.get_batch_real_caps(
-                        'fact', bs, self.max_seq_length)  # [bs, max_len, word_dim]
+                        'fact', bs, self.max_seq_len)  # [bs, max_len, word_dim]
                     d_real_out = self.discriminator(real_caps)  # [bs]
                     d_real_loss = self.dis_crit(d_real_out, d_real_labels)
                     d_fake_out = self.discriminator(cap_out)
@@ -113,7 +113,7 @@ class InSentiCap(nn.Module):
                     self.discriminator.weight_cliping()
 
                     (real_caps, _), real_senti_labels = self.get_batch_real_caps(
-                        'senti', bs, self.max_seq_length)  # [bs, max_len, word_dim], [bs]
+                        'senti', bs, self.max_seq_len)  # [bs, max_len, word_dim], [bs]
                     c_real_out = self.classifier(real_caps)  # [bs, num_senti]
                     c_real_loss = self.cls_crit(c_real_out, real_senti_labels)
                     self.cls_optim.zero_grad()
@@ -122,7 +122,7 @@ class InSentiCap(nn.Module):
                     self.classifier.weight_cliping()
 
             real_caps, _ = self.get_batch_real_caps(
-                'fact', bs, self.max_seq_length)  # [bs, max_len, word_dim]
+                'fact', bs, self.max_seq_len)  # [bs, max_len, word_dim]
             d_real_out = self.discriminator(real_caps)  # [bs]
             d_real_loss = self.dis_crit(d_real_out, d_real_labels)
             d_fake_out = self.discriminator(cap_out)
@@ -130,7 +130,7 @@ class InSentiCap(nn.Module):
             d_loss = d_real_loss + d_fake_loss
 
             (real_caps, _), real_senti_labels = self.get_batch_real_caps(
-                'senti', bs, self.max_seq_length)  # [bs, max_len, word_dim], [bs]
+                'senti', bs, self.max_seq_len)  # [bs, max_len, word_dim], [bs]
             c_real_out = self.classifier(real_caps)  # [bs, num_senti]
             c_real_loss = self.cls_crit(c_real_out, real_senti_labels)
             c_fake_out = self.classifier(cap_out)
@@ -187,6 +187,6 @@ class InSentiCap(nn.Module):
         _, senti_features, det_img_sentis, _ = self.senti_detector.sample(att_feats)
         captions, _ = self.captioner.sample(
             fc_feats, att_feats, cpts_tensor, senti_features, sentis_tensor,
-            beam_size, decoding_constraint, self.max_seq_length)
+            beam_size, decoding_constraint, self.max_seq_len)
 
         return captions, det_img_sentis

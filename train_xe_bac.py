@@ -28,8 +28,35 @@ def train():
     img_captions = json.load(open(opt.img_captions, 'r'))
     img_det_concepts = json.load(open(opt.img_det_concepts, 'r'))
 
+    word2idx = {}
+    for i, w in enumerate(idx2word):
+        word2idx[w] = i
+
+    print('====> process image captions begin')
+    captions_id = {}
+    for split, caps in img_captions.items():
+        print('convert %s captions to index' % split)
+        captions_id[split] = {}
+        for fn, seqs in tqdm.tqdm(caps.items()):
+            tmp = []
+            for seq in seqs:
+                tmp.append([word2idx['<SOS>']] +
+                           [word2idx.get(w, None) or word2idx['<UNK>'] for w in seq] +
+                           [word2idx['<EOS>']])
+            captions_id[split][fn] = tmp
+    img_captions = captions_id
+    print('====> process image captions end')
+
+    print('====> process image det_concepts begin')
+    det_concepts_id = {}
+    for fn, cpts in tqdm.tqdm(img_det_concepts.items()):
+        det_concepts_id[fn] = [word2idx[w] for w in cpts]
+    img_det_concepts = det_concepts_id
+    print('====> process image det_concepts end')
+
     captioner = Captioner(idx2word, opt.settings)
     captioner.to(opt.device)
+
     lr = opt.xe_lr
     optimizer, criterion = captioner.get_optim_criterion(lr)
     if opt.xe_resume:
@@ -45,32 +72,6 @@ def train():
         print("====> loaded checkpoint '{}', epoch: {}"
               .format(opt.xe_resume, chkpoint['epoch']))
 
-    word2idx = {}
-    for i, w in enumerate(idx2word):
-        word2idx[w] = i
-
-    print('====> process image captions begin')
-    captions_id = {}
-    for split, caps in img_captions.items():
-        print('convert %s captions to index' % split)
-        captions_id[split] = {}
-        for fn, seqs in tqdm.tqdm(caps.items()):
-            tmp = []
-            for seq in seqs:
-                tmp.append([captioner.sos_id] +
-                           [word2idx.get(w, None) or word2idx['<UNK>'] for w in seq] +
-                           [captioner.eos_id])
-            captions_id[split][fn] = tmp
-    img_captions = captions_id
-    print('====> process image captions end')
-
-    print('====> process image det_concepts begin')
-    det_concepts_id = {}
-    for fn, cpts in tqdm.tqdm(img_det_concepts.items()):
-        det_concepts_id[fn] = [word2idx[w] for w in cpts]
-    img_det_concepts = det_concepts_id
-    print('====> process image det_concepts end')
-
     train_data = get_caption_dataloader(opt.fc_feats, opt.att_feats, img_captions['train'],
                                         img_det_concepts, idx2word.index('<PAD>'),
                                         opt.max_seq_len, opt.num_concepts,
@@ -79,10 +80,7 @@ def train():
                                       img_det_concepts, idx2word.index('<PAD>'),
                                       opt.max_seq_len, opt.num_concepts, opt.xe_bs,
                                       opt.xe_num_works, shuffle=False)
-    test_captions = {}
-    for fn in img_captions['test']:
-        test_captions[fn] = [[]]
-    test_data = get_caption_dataloader(opt.fc_feats, opt.att_feats, test_captions,
+    test_data = get_caption_dataloader(opt.fc_feats, opt.att_feats, img_captions['test'],
                                        img_det_concepts, idx2word.index('<PAD>'),
                                        opt.max_seq_len, opt.num_concepts, opt.xe_bs,
                                        opt.xe_num_works, shuffle=False)
@@ -97,13 +95,14 @@ def train():
             cpts_tensor = cpts_tensor.to(opt.device)
 
             pred = captioner(fc_feats, att_feats, cpts_tensor, caps_tensor,
-                             ss_prob, mode='xe')
-            # real = pack_padded_sequence(caps_tensor[:, 1:], lengths, batch_first=True)[0]
-            loss = criterion(pred, caps_tensor[:, 1:], lengths)
+                             lengths, ss_prob, mode='xe')
+            real = pack_padded_sequence(caps_tensor[:, 1:], lengths, batch_first=True)[0]
+            loss = criterion(pred, real)
             loss_val += loss.item()
             if training:
                 optimizer.zero_grad()
                 loss.backward()
+                # TODO
                 clip_gradient(optimizer, opt.grad_clip)
                 optimizer.step()
         return loss_val / len(data)

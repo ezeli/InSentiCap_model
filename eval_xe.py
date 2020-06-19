@@ -34,7 +34,7 @@ for fn, caps in img_captions[split].items():
 
 train_data = get_caption_dataloader(f_fc, f_att, test_captions,
                                     img_det_concepts, idx2word,
-                                    idx2word.index('<PAD>'), opt.max_sql_len,
+                                    idx2word.index('<PAD>'), opt.max_seq_len,
                                     opt.num_concepts, opt.xe_bs)
 
 results = []
@@ -45,7 +45,7 @@ for fns, fc_feats, att_feats, _, cpts_tensor in tqdm.tqdm(train_data):
     for i, fn in enumerate(fns):
         captions, _ = model.sample(fc_feats[i], att_feats[i], cpts_tensor[i],
                                    beam_size=opt.beam_size,
-                                   max_seq_length=opt.max_sql_len)
+                                   max_seq_len=opt.max_seq_len)
         results.append({'image_id': fn, 'caption': captions[0]})
 
 json.dump(results, open(opt.result_file, 'w'))

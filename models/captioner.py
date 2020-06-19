@@ -110,10 +110,10 @@ class Captioner(nn.Module):
                                                      padding_idx=self.pad_id),
                                         nn.ReLU(),
                                         nn.Dropout(settings['dropout_p']))
-        self.fc_embed = nn.Linear(settings['fc_feat_dim'], settings['feat_emb_dim'])
-        # self.fc_embed = nn.Sequential(nn.Linear(settings['fc_feat_dim'], settings['feat_emb_dim']),
-        #                               nn.ReLU(),
-        #                               nn.Dropout(settings['dropout_p']))
+        # self.fc_embed = nn.Linear(settings['fc_feat_dim'], settings['feat_emb_dim'])
+        self.fc_embed = nn.Sequential(nn.Linear(settings['fc_feat_dim'], settings['feat_emb_dim']),
+                                      nn.ReLU(),
+                                      nn.Dropout(settings['dropout_p']))
         self.att_embed = nn.Sequential(nn.Linear(settings['att_feat_dim'], settings['feat_emb_dim']),
                                        nn.ReLU(),
                                        nn.Dropout(settings['dropout_p']))
@@ -164,7 +164,7 @@ class Captioner(nn.Module):
             del kwargs['mode']
         return getattr(self, 'forward_' + mode)(*args, **kwargs)
 
-    def forward_xe(self, fc_feats, att_feats, concepts, captions, lengths,
+    def forward_xe_(self, fc_feats, att_feats, concepts, captions, lengths,
                    ss_prob=0.0):
         batch_size = fc_feats.size(0)
         outputs = []
@@ -209,8 +209,47 @@ class Captioner(nn.Module):
         outputs = pack_padded_sequence(outputs, lengths, batch_first=True)[0]
         return outputs
 
+    def forward_xe(self, fc_feats, att_feats, concepts, captions, ss_prob=0.0):
+        batch_size = fc_feats.size(0)
+        outputs = []
+        # outputs = fc_feats.new_zeros(batch_size, lengths[0], self.vocab_size)
+
+        fc_feats = self.fc_embed(fc_feats)  # [bs, feat_emb]
+        att_feats = att_feats.view(batch_size, -1, att_feats.shape[-1])  # [bs, num_atts, att_feat]
+        att_feats = self.att_embed(att_feats)  # [bs, num_atts, feat_emb]
+        cpt_feats = self.word_embed(concepts)  # [bs, num_cpts, word_emb]
+        # p_att_feats/p_cpt_feats are used for attention, we cache it in advance to reduce computation cost
+        p_att_feats = self.att2att(att_feats)  # [bs, num_atts, att_hid]
+        p_cpt_feats = self.cpt2att(cpt_feats)  # [bs, num_cpts, att_hid]
+        state = self.init_hidden(batch_size)
+
+        for i in range(captions.size(1) - 1):
+            if self.training and i >= 1 and ss_prob > 0.0:  # otherwise no need to sample
+                sample_prob = fc_feats.new(batch_size).uniform_(0, 1)
+                sample_mask = sample_prob < ss_prob
+                if sample_mask.sum() == 0:
+                    it = captions[:, i].clone()  # bs
+                else:
+                    sample_ind = sample_mask.nonzero().view(-1)
+                    it = captions[:, i].clone()  # bs
+                    prob_prev = outputs[:, i - 1].detach().softmax(dim=-1)  # bs*vocab_size, fetch prev distribution
+                    it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
+            else:
+                it = captions[:, i].clone()  # bs
+
+            word_embs = self.word_embed(it)  # [bs, word_emb]
+            output, state = self.forward_step(
+                word_embs, fc_feats, att_feats, cpt_feats, p_att_feats,
+                p_cpt_feats, state)
+            output = output.log_softmax(dim=-1)
+            outputs.append(output)
+
+        outputs = torch.stack(outputs, dim=1)  # [bs, max_len, vocab_size]
+        # outputs = pack_padded_sequence(outputs, lengths, batch_first=True)[0]
+        return outputs
+
     def forward_ft(self, fc_feats, att_feats, concepts,
-                   senti_feats, sentiments, max_seq_length):
+                   senti_feats, sentiments, max_seq_len):
         batch_size = fc_feats.shape[0]
         outputs = []
 
@@ -232,7 +271,7 @@ class Captioner(nn.Module):
         word_embs = self.word_embed(it)  # [bs, word_dim]
         we_weight = self.word_embed[0].weight[1:, :]  # [vocab-1, word_dim]
         unfinishs = []
-        for i in range(max_seq_length):
+        for i in range(max_seq_len):
             output, state = self.forward_step(word_embs, fc_feats, att_feats, cpt_feats,
                                               p_att_feats, p_cpt_feats, state,
                                               senti_feats, senti_word_feats,
@@ -362,7 +401,7 @@ class Captioner(nn.Module):
 
     def sample(self, fc_feat, att_feat, concepts,
                senti_feat=None, sentiments=None,
-               beam_size=3, decoding_constraint=1, max_seq_length=20):
+               beam_size=3, decoding_constraint=1, max_seq_len=16):
         self.eval()
         fc_feat = fc_feat.view(1, -1)  # [1, fc_feat]
         att_feat = att_feat.view(1, -1, att_feat.shape[-1])  # [1, num_atts, att_feat]
@@ -384,7 +423,7 @@ class Captioner(nn.Module):
 
         state = self.init_hidden(1)
         candidates = [BeamCandidate(state, 0., [], self.sos_id, [])]
-        for t in range(max_seq_length):
+        for t in range(max_seq_len):
             tmp_candidates = []
             end_flag = True
             for candidate in candidates:
@@ -400,9 +439,10 @@ class Captioner(nn.Module):
                                      senti_feat, senti_word_feat,
                                      p_senti_word_feat)  # [1, vocab_size]
                     output = output.squeeze(0)  # vocab_size
-                    output[self.pad_id] = float('-inf')  # do not generate <PAD> and <SOS>
-                    output[self.sos_id] = float('-inf')
-                    output[self.unk_id] = float('-inf')
+                    if self.pad_id != self.eos_id:
+                        output[self.pad_id] = float('-inf')  # do not generate <PAD> and <SOS>
+                        output[self.sos_id] = float('-inf')
+                        output[self.unk_id] = float('-inf')
                     if decoding_constraint:  # do not generate last step word
                         output[last_word_id] = float('-inf')
                     output = output.softmax(dim=-1)
@@ -428,7 +468,7 @@ class Captioner(nn.Module):
 
     def sample_ft(self, fc_feat, att_feat, concepts,
                   senti_feat=None, sentiments=None,
-                  beam_size=3, decoding_constraint=1, max_seq_length=20):
+                  beam_size=3, decoding_constraint=1, max_seq_len=16):
         self.eval()
         fc_feat = fc_feat.view(1, -1)  # [1, fc_feat]
         att_feat = att_feat.view(1, -1, att_feat.shape[-1])  # [1, num_atts, att_feat]
@@ -453,7 +493,7 @@ class Captioner(nn.Module):
         word_emb = self.word_embed(it)  # [1, word_dim]
         state = self.init_hidden(1)
         candidates = [BeamCandidate(state, 0., word_emb, self.sos_id, [])]
-        for t in range(max_seq_length):
+        for t in range(max_seq_len):
             tmp_candidates = []
             end_flag = True
             for candidate in candidates:
@@ -497,4 +537,23 @@ class Captioner(nn.Module):
 
     def get_optim_criterion(self, lr, weight_decay=0):
         return torch.optim.Adam(self.parameters(), lr=lr, weight_decay=weight_decay),\
-               nn.CrossEntropyLoss()
+               XECriterion()
+
+
+class XECriterion(nn.Module):
+    def __init__(self):
+        super(XECriterion, self).__init__()
+
+    def forward(self, pred, target, lengths):
+        max_len = max(lengths)
+        # pred = pred[:, :max_len]
+        # target = target[:, :max_len]
+        mask = pred.new_zeros(len(lengths), max_len)
+        for i, l in enumerate(lengths):
+            mask[i, :l] = 1
+        # pred = pred.log_softmax(dim=-1)
+
+        loss = - pred.gather(2, target.unsqueeze(2)).squeeze(2) * mask
+        loss = torch.sum(loss) / torch.sum(mask)
+
+        return loss

@@ -32,7 +32,7 @@ def parse_opt():
     parser.add_argument('--xe_resume', type=str, default='')
     parser.add_argument('--xe_epochs', type=int, default=40)
 
-    parser.add_argument('--scheduled_sampling_start', type=int, default=10)
+    parser.add_argument('--scheduled_sampling_start', type=int, default=0)
     parser.add_argument('--scheduled_sampling_increase_every', type=int, default=5)
     parser.add_argument('--scheduled_sampling_increase_prob', type=float, default=0.05)
     parser.add_argument('--scheduled_sampling_max_prob', type=float, default=0.25)
@@ -91,8 +91,7 @@ def parse_opt():
     parser.add_argument('--senti_att_feats', type=str, default='./data/features/sentiment/feats_att.h5')
     parser.add_argument('--checkpoint', type=str, default='./checkpoint/')
     parser.add_argument('--lm_dir', type=str, default='./data/corpus')
-    parser.add_argument('--max_sql_len', type=int, default=20)
-    parser.add_argument('--max_seq_len', type=int, default=20)
+    parser.add_argument('--max_seq_len', type=int, default=16)
     parser.add_argument('--num_concepts', type=int, default=10)
     parser.add_argument('--num_sentiments', type=int, default=5)
     parser.add_argument('--grad_clip', type=float, default=0.1)

@@ -37,8 +37,8 @@ def train():
             'opt.settings and resume model settings are different'
         assert idx2word == chkpoint['idx2word'], \
             'idx2word and resume model idx2word are different'
-        assert opt.max_sql_len == chkpoint['max_seq_length'], \
-            'opt.max_seq_length and resume model max_seq_length are different'
+        assert opt.max_seq_len == chkpoint['max_seq_len'], \
+            'opt.max_seq_len and resume model max_seq_len are different'
         assert opt.sentiment_categories == chkpoint['sentiment_categories'], \
             'opt.sentiment_categories and resume model sentiment_categories are different'
         model.load_state_dict(chkpoint['model'])
@@ -201,7 +201,7 @@ def train():
                 'model': model.state_dict(),
                 'settings': opt.settings,
                 'idx2word': idx2word,
-                'max_seq_length': opt.max_seq_len,
+                'max_seq_len': opt.max_seq_len,
                 'sentiment_categories': opt.sentiment_categories,
             }
             checkpoint_path = os.path.join(

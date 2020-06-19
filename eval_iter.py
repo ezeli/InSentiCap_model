@@ -22,7 +22,7 @@ print("====> loading checkpoint '{}'".format(opt.eval_model))
 chkpoint = torch.load(opt.eval_model, map_location=lambda s, l: s)
 epoch = chkpoint['epoch']
 idx2word = chkpoint['idx2word']
-model = InSentiCap(idx2word, chkpoint['max_seq_length'],
+model = InSentiCap(idx2word, chkpoint['max_seq_len'],
                    chkpoint['sentiment_categories'], defaultdict(int),
                    chkpoint['iter_hyperparams'], None, chkpoint['settings'])
 model.load_state_dict(chkpoint['model'])
