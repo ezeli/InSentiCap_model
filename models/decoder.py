@@ -13,7 +13,8 @@ from self_critical.utils import get_ciderd_scorer, get_self_critical_reward, \
 def clip_gradient(optimizer, grad_clip=0.1):
     for group in optimizer.param_groups:
         for param in group['params']:
-            param.grad.data.clamp_(-grad_clip, grad_clip)
+            if param.grad is not None:
+                param.grad.data.clamp_(-grad_clip, grad_clip)
 
 
 class Detector(nn.Module):
@@ -58,7 +59,8 @@ class Detector(nn.Module):
             sentis_tensor = sentis_tensor.to(device)
             del data_item
 
-            det_sentis, det_senti_features = self.senti_detector(att_feats)  # [bs, num_sentis], [bs, 14, 14]
+            # det_sentis, det_senti_features = self.senti_detector(att_feats)  # [bs, num_sentis], [bs, 14, 14]
+            det_sentis, det_senti_features = None, None  # [bs, num_sentis], [bs, 14, 14]
             if data_type == 'fact':
                 # senti_labels = det_sentis.argmax(-1).detach()  # bs
                 s_loss = 0
