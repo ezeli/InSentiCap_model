@@ -116,7 +116,7 @@ def train():
             captioner.train()
 
             reward = get_self_critical_reward(
-                sample_captions, greedy_captions, fns, ground_truth,
+                sample_captions, greedy_captions, fns, img_captions['train'],
                 captioner.sos_id, captioner.eos_id, ciderd_scorer)
             # reward = get_self_critical_reward(model, fc_feats, att_feats, None, data, sample_captions, None, new_CiderD_scorer=ciderd_scorer)
             loss = criterion(sample_logprobs, seq_masks, torch.from_numpy(reward).float().to(opt.device))
