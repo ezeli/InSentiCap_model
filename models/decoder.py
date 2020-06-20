@@ -45,7 +45,7 @@ class Detector(nn.Module):
         device = next(self.parameters()).device
         for data_item in tqdm.tqdm(data):
             if data_type == 'fact':
-                fns, fc_feats, att_feats, cpts_tensor, sentis_tensor, ground_truth = data_item
+                fns, fc_feats, att_feats, (caps_tensor, lengths), cpts_tensor, sentis_tensor, ground_truth = data_item
             elif data_type == 'senti':
                 fns, fc_feats, att_feats, cpts_tensor, sentis_tensor, senti_labels = data_item
                 senti_labels = senti_labels.to(device)
