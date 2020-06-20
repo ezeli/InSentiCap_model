@@ -136,17 +136,20 @@ def train():
         with torch.no_grad():
             # test
             results = []
-            for data_item in tqdm.tqdm(test_data):
-                fns, fc_feats, att_feats, (caps_tensor, lengths), cpts_tensor = data_item
+            fact_txt = ''
+            for fns, fc_feats, att_feats, _, cpts_tensor in tqdm.tqdm(test_data):
                 fc_feats = fc_feats.to(opt.device)
                 att_feats = att_feats.to(opt.device)
                 cpts_tensor = cpts_tensor.to(opt.device)
-
-                sents = captioner.sample(fc_feats, att_feats, cpts_tensor, beam_size=opt.beam_size, max_seq_len=opt.max_seq_len)[0]
-                assert len(sents) == len(fns)
-                for k, sent in enumerate(sents):
-                    results.append({'image_id': fns[k], 'caption': sent})
+                for i, fn in enumerate(fns):
+                    captions, _ = captioner.sample(
+                        fc_feats[i], att_feats[i], cpts_tensor[i],
+                        beam_size=opt.beam_size, max_seq_len=opt.max_seq_len)
+                    results.append({'image_id': fn, 'caption': captions[0]})
+                    fact_txt += captions[0] + '\n'
             json.dump(results, open(os.path.join(result_dir, 'result_%d.json' % epoch), 'w'))
+            with open(os.path.join(result_dir, 'result_%d.txt' % epoch), 'w') as f:
+                f.write(fact_txt)
 
         print('train_loss:', train_loss, 'avg_reward:', avg_reward)
 
