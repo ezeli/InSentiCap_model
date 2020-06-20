@@ -13,8 +13,7 @@ import numpy as np
 from opts import parse_opt
 from models.captioner import Captioner
 from dataloader import get_caption_dataloader
-from self_critical.utils import get_ciderd_scorer, get_self_critical_reward, \
-    get_lm_reward, RewardCriterion
+from self_critical.utils import get_ciderd_scorer, get_self_critical_reward, RewardCriterion
 
 
 def clip_gradient(optimizer, grad_clip):
@@ -86,28 +85,7 @@ def train():
                                        opt.max_seq_len, opt.num_concepts, opt.xe_bs,
                                        opt.xe_num_works, shuffle=False)
 
-    def forward(data, training=True, ss_prob=0.0):
-        captioner.train(training)
-        loss_val = 0.0
-        for _, fc_feats, att_feats, (caps_tensor, lengths), cpts_tensor in tqdm.tqdm(data):
-            fc_feats = fc_feats.to(opt.device)
-            att_feats = att_feats.to(opt.device)
-            caps_tensor = caps_tensor.to(opt.device)
-            cpts_tensor = cpts_tensor.to(opt.device)
-
-            pred = captioner(fc_feats, att_feats, cpts_tensor, caps_tensor,
-                             ss_prob, mode='xe')
-            # real = pack_padded_sequence(caps_tensor[:, 1:], lengths, batch_first=True)[0]
-            loss = criterion(pred, caps_tensor[:, 1:], lengths)
-            loss_val += loss.item()
-            if training:
-                optimizer.zero_grad()
-                loss.backward()
-                clip_gradient(optimizer, opt.grad_clip)
-                optimizer.step()
-        return loss_val / len(data)
-
-    ciderd_scorer = get_ciderd_scorer(img_captions)
+    ciderd_scorer = get_ciderd_scorer(img_captions, captioner.sos_id, captioner.eos_id)
 
     checkpoint = os.path.join(opt.checkpoint, 'xe')
     if not os.path.exists(checkpoint):
