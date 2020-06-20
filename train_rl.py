@@ -119,8 +119,11 @@ def train():
         opt.fc_feats, opt.att_feats, img_captions['val'], img_det_concepts,
         img_det_sentiments, model.captioner.pad_id, opt.max_seq_len,
         opt.num_concepts, opt.num_sentiments, opt.rl_bs, opt.rl_num_works, shuffle=False)
+    test_captions = {}
+    for fn in img_captions['test']:
+        test_captions[fn] = [[]]
     fact_test_data = get_rl_fact_dataloader(
-        opt.fc_feats, opt.att_feats, img_captions['test'], img_det_concepts,
+        opt.fc_feats, opt.att_feats, test_captions, img_det_concepts,
         img_det_sentiments, model.captioner.pad_id, opt.max_seq_len,
         opt.num_concepts, opt.num_sentiments, opt.rl_bs, opt.rl_num_works, shuffle=False)
 
@@ -134,10 +137,10 @@ def train():
         opt.num_concepts, opt.num_sentiments, opt.rl_bs, opt.rl_num_works, shuffle=False)
 
     model.set_ciderd_scorer(img_captions)
-    lms = {}
-    for senti, i in senti_label2idx.items():
-        lms[i] = kenlm.LanguageModel(os.path.join(opt.lm_dir, '%s.arpa' % senti))
-    model.set_lms(lms)
+    # lms = {}
+    # for senti, i in senti_label2idx.items():
+    #     lms[i] = kenlm.LanguageModel(os.path.join(opt.lm_dir, '%s.arpa' % senti))
+    # model.set_lms(lms)
 
     checkpoint = os.path.join(opt.checkpoint, 'rl')
     if not os.path.exists(checkpoint):
@@ -161,8 +164,9 @@ def train():
         with torch.no_grad():
             torch.cuda.empty_cache()
             print('----------val')
-            senti_val_loss = model(senti_val_data, data_type='senti', training=False)
-            print('senti_val_loss:', senti_val_loss)
+            # senti_val_loss = model(senti_val_data, data_type='senti', training=False)
+            # print('senti_val_loss:', senti_val_loss)
+            senti_val_loss = 0.0
             fact_val_loss = model(fact_val_data, data_type='fact', training=False)
             print('fact_val_loss:', fact_val_loss)
 

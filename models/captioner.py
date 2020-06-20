@@ -232,7 +232,7 @@ class Captioner(nn.Module):
                 else:
                     sample_ind = sample_mask.nonzero().view(-1)
                     it = captions[:, i].clone()  # bs
-                    prob_prev = outputs[:, i - 1].detach().softmax(dim=-1)  # bs*vocab_size, fetch prev distribution
+                    prob_prev = outputs[i - 1].detach().softmax(dim=-1)  # bs*vocab_size, fetch prev distribution
                     it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
             else:
                 it = captions[:, i].clone()  # bs
@@ -309,13 +309,12 @@ class Captioner(nn.Module):
         att_feats = att_feats.view(batch_size, -1, att_feats.shape[-1])  # [bs, num_atts, att_feat]
         att_feats = self.att_embed(att_feats)  # [bs, num_atts, feat_emb]
         cpt_feats = self.word_embed(concepts)  # [bs, num_cpts, word_emb]
-        senti_feats = senti_feats.view(batch_size, -1)  # [bs, senti_feat]
-        senti_feats = self.senti_embed(senti_feats)  # [bs, feat_emb]
-        senti_word_feats = self.word_embed(sentiments)  # [bs, num_stmts, word_emb]
-        # p_att_feats/p_cpt_feats are used for attention, we cache it in advance to reduce computation cost
+        # senti_feats = senti_feats.view(batch_size, -1)  # [bs, senti_feat]
+        # senti_feats = self.senti_embed(senti_feats)  # [bs, feat_emb]
+        # senti_word_feats = self.word_embed(sentiments)  # [bs, num_stmts, word_emb]
         p_att_feats = self.att2att(att_feats)  # [bs, num_atts, att_hid]
         p_cpt_feats = self.cpt2att(cpt_feats)  # [bs, num_cpts, att_hid]
-        p_senti_word_feats = self.senti2att(senti_word_feats)  # [bs, num_stmts, att_hid]
+        # p_senti_word_feats = self.senti2att(senti_word_feats)  # [bs, num_stmts, att_hid]
 
         state = self.init_hidden(batch_size)
         seq = fc_feats.new_zeros((batch_size, max_seq_len), dtype=torch.long)
@@ -326,9 +325,9 @@ class Captioner(nn.Module):
         for t in range(max_seq_len):
             word_embs = self.word_embed(it)  # [bs, word_emb]
             output, state = self.forward_step(word_embs, fc_feats, att_feats, cpt_feats,
-                                              p_att_feats, p_cpt_feats, state,
-                                              senti_feats, senti_word_feats,
-                                              p_senti_word_feats)
+                                              p_att_feats, p_cpt_feats, state)
+                                              # senti_feats, senti_word_feats,
+                                              # p_senti_word_feats)
 
             output = output.softmax(dim=-1)  # [bs, vocab]
             logprobs = output.log()  # [bs, vocab]

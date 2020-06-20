@@ -26,8 +26,8 @@ class Detector(nn.Module):
         self.captioner = Captioner(idx2word, settings)
         self.senti_detector = SentimentDetector(sentiment_categories, settings)
 
-        self.cap_optim, _ = self.captioner.get_optim_criterion(lrs['cap_lr'])
-        self.cap_crit = RewardCriterion()
+        self.cap_optim, self.cap_xe_crit = self.captioner.get_optim_criterion(lrs['cap_lr'])
+        self.cap_rl_crit = RewardCriterion()
         self.senti_optim, self.senti_crit = self.senti_detector.get_optim_criterion(lrs['senti_lr'])
 
         self.ciderd_scorer = None
@@ -60,7 +60,7 @@ class Detector(nn.Module):
 
             det_sentis, det_senti_features = self.senti_detector(att_feats)  # [bs, num_sentis], [bs, 14, 14]
             if data_type == 'fact':
-                senti_labels = det_sentis.argmax(-1).detach()  # bs
+                # senti_labels = det_sentis.argmax(-1).detach()  # bs
                 s_loss = 0
             else:
                 s_loss = self.senti_crit(det_sentis, senti_labels)
@@ -83,13 +83,14 @@ class Detector(nn.Module):
             else:
                 fact_reward = 0
 
-            senti_reward = get_lm_reward(
-                sample_captions, greedy_captions, senti_labels,
-                self.captioner.sos_id, self.captioner.eos_id, self.lms)
-            senti_reward = torch.from_numpy(senti_reward).float().to(device)
+            # senti_reward = get_lm_reward(
+            #     sample_captions, greedy_captions, senti_labels,
+            #     self.captioner.sos_id, self.captioner.eos_id, self.lms)
+            # senti_reward = torch.from_numpy(senti_reward).float().to(device)
 
-            rewards = senti_reward + fact_reward
-            cap_loss = self.cap_crit(sample_logprobs, seq_masks, rewards)
+            # rewards = senti_reward + fact_reward
+            rewards = fact_reward
+            cap_loss = self.cap_rl_crit(sample_logprobs, seq_masks, rewards)
             
             all_losses[0] += float(rewards[:, 0].sum())
             all_losses[1] += float(s_loss)
