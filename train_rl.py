@@ -35,14 +35,14 @@ def train():
     optimizer, _ = captioner.get_optim_criterion(lr)
     criterion = RewardCriterion()
     print("====> loading checkpoint '{}'".format(opt.rl_xe_resume))
-    chkpoint = torch.load(opt.xe_resume, map_location=lambda s, l: s)
+    chkpoint = torch.load(opt.rl_xe_resume, map_location=lambda s, l: s)
     assert opt.settings == chkpoint['settings'], \
         'opt.settings and resume model settings are different'
     assert idx2word == chkpoint['idx2word'], \
         'idx2word and resume model idx2word are different'
     captioner.load_state_dict(chkpoint['model'])
     print("====> loaded checkpoint '{}', epoch: {}"
-          .format(opt.xe_resume, chkpoint['epoch']))
+          .format(opt.rl_xe_resume, chkpoint['epoch']))
 
     word2idx = {}
     for i, w in enumerate(idx2word):
