@@ -166,13 +166,13 @@ def train():
             print('----------val')
             # senti_val_loss = model(senti_val_data, data_type='senti', training=False)
             # print('senti_val_loss:', senti_val_loss)
-            senti_val_loss = 0.0
+            senti_val_loss = [0.0, 0.0]
             fact_val_loss = model(fact_val_data, data_type='fact', training=False)
             print('fact_val_loss:', fact_val_loss)
 
             # test
             results = []
-            det_sentis = {}
+            # det_sentis = {}
             for data_item in tqdm.tqdm(fact_test_data):
                 fns, fc_feats, att_feats, (caps_tensor, lengths), cpts_tensor, sentis_tensor, ground_truth = data_item
                 fc_feats = fc_feats.to(opt.device)
@@ -186,10 +186,10 @@ def train():
                         fc_feats[i], att_feats[i], cpts_tensor[i], sentis_tensor[i],
                         beam_size=opt.beam_size)
                     results.append({'image_id': fn, 'caption': captions[0]})
-                    det_sentis[fn] = det_img_sentis[0]
+                    # det_sentis[fn] = det_img_sentis[0]
 
             json.dump(results, open(os.path.join(result_dir, 'result_%d.json' % epoch), 'w'))
-            json.dump(det_sentis, open(os.path.join(result_dir, 'result_%d_sentis.json' % epoch), 'w'))
+            # json.dump(det_sentis, open(os.path.join(result_dir, 'result_%d_sentis.json' % epoch), 'w'))
 
         if previous_loss is not None and senti_val_loss[0] > previous_loss[0] \
                 and fact_val_loss[0] > previous_loss[1]:
