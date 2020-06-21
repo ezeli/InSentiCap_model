@@ -6,7 +6,8 @@ from .captioner import Captioner
 from .sentiment_detector import SentimentDetector
 # import sys
 # sys.path.append("../")
-from self_critical.utils import get_ciderd_scorer, get_self_critical_reward, RewardCriterion
+from self_critical.utils import get_ciderd_scorer, get_self_critical_reward, \
+    get_lm_reward, RewardCriterion
 
 
 def clip_gradient(optimizer, grad_clip=0.1):
@@ -41,7 +42,7 @@ class Detector(nn.Module):
 
     def forward(self, data, data_type, training):
         self.train(training)
-        all_losses = [0.0, 0.0]
+        all_losses = [0.0, 0.0, 0.0]
         device = next(self.parameters()).device
         for data_item in tqdm.tqdm(data):
             if data_type == 'fact':
@@ -83,17 +84,18 @@ class Detector(nn.Module):
             else:
                 fact_reward = 0
 
-            # senti_reward = get_lm_reward(
-            #     sample_captions, greedy_captions, senti_labels,
-            #     self.captioner.sos_id, self.captioner.eos_id, self.lms)
-            # senti_reward = torch.from_numpy(senti_reward).float().to(device)
+            senti_reward = get_lm_reward(
+                sample_captions, greedy_captions, senti_labels,
+                self.captioner.sos_id, self.captioner.eos_id, self.lms)
+            senti_reward = torch.from_numpy(senti_reward).float().to(device)
 
-            # rewards = senti_reward + fact_reward
-            rewards = fact_reward
+            rewards = senti_reward + fact_reward
+            # rewards = fact_reward
             cap_loss = self.cap_rl_crit(sample_logprobs, seq_masks, rewards)
             
-            all_losses[0] += float(rewards[:, 0].sum())
-            all_losses[1] += float(s_loss)
+            all_losses[0] += float(senti_reward[:, 0].sum())
+            all_losses[1] += float(fact_reward[:, 0].sum())
+            all_losses[2] += float(s_loss)
 
             if training:
                 if data_type == 'senti':
@@ -107,7 +109,7 @@ class Detector(nn.Module):
                 clip_gradient(self.cap_optim)
                 self.cap_optim.step()
 
-        return - all_losses[0] / len(data), all_losses[1] / len(data)
+        return - all_losses[0] / len(data), - all_losses[1] / len(data), all_losses[2] / len(data)
 
     def sample(self, fc_feats, att_feats, cpts_tensor, sentis_tensor,
                beam_size=3, decoding_constraint=1):

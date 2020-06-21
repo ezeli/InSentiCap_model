@@ -63,7 +63,7 @@ def parse_opt():
     parser.add_argument('--rl_senti_resume', type=str, default='checkpoint/sentiment/model-10.pth')
     parser.add_argument('--rl_epochs', type=int, default=20)
     parser.add_argument('--rl_fact_times', type=int, default=1)
-    parser.add_argument('--rl_senti_times', type=int, default=0)
+    parser.add_argument('--rl_senti_times', type=int, default=2)
 
     # xe_joint
     parser.add_argument('--xe_joint_lrs', type=json.loads,

@@ -164,9 +164,9 @@ def train():
         with torch.no_grad():
             torch.cuda.empty_cache()
             print('----------val')
-            # senti_val_loss = model(senti_val_data, data_type='senti', training=False)
-            # print('senti_val_loss:', senti_val_loss)
-            senti_val_loss = [0.0, 0.0]
+            senti_val_loss = model(senti_val_data, data_type='senti', training=False)
+            print('senti_val_loss:', senti_val_loss)
+            # senti_val_loss = [0.0, 0.0]
             fact_val_loss = model(fact_val_data, data_type='fact', training=False)
             print('fact_val_loss:', fact_val_loss)
 
@@ -191,13 +191,13 @@ def train():
             json.dump(results, open(os.path.join(result_dir, 'result_%d.json' % epoch), 'w'))
             json.dump(det_sentis, open(os.path.join(result_dir, 'result_%d_sentis.json' % epoch), 'w'))
 
-        if previous_loss is not None and senti_val_loss[0] > previous_loss[0] \
-                and fact_val_loss[0] > previous_loss[1]:
-            for optim in [model.cap_optim, model.senti_optim]:
-                lr = optim.param_groups[0]['lr'] * 0.5
-                for param_group in optim.param_groups:
-                    param_group['lr'] = lr
-        previous_loss = [senti_val_loss[0], fact_val_loss[0]]
+        # if previous_loss is not None and senti_val_loss[0] > previous_loss[0] \
+        #         and fact_val_loss[0] > previous_loss[1]:
+        #     for optim in [model.cap_optim, model.senti_optim]:
+        #         lr = optim.param_groups[0]['lr'] * 0.5
+        #         for param_group in optim.param_groups:
+        #             param_group['lr'] = lr
+        # previous_loss = [senti_val_loss[0], fact_val_loss[0]]
 
         if epoch in [0, 1, 2, 3, 5, 7, 9, 10, 12, 14, 15, 17, 19]:
             chkpoint = {
