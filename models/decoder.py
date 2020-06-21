@@ -89,7 +89,7 @@ class Detector(nn.Module):
                 self.captioner.sos_id, self.captioner.eos_id, self.lms)
             senti_reward = torch.from_numpy(senti_reward).float().to(device)
 
-            rewards = senti_reward + fact_reward
+            rewards = 0.01 * senti_reward + fact_reward
             # rewards = fact_reward
             cap_loss = self.cap_rl_crit(sample_logprobs, seq_masks, rewards)
             

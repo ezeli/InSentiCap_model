@@ -2,6 +2,7 @@
 import tqdm
 import os
 import time
+from collections import defaultdict
 import json
 import sys
 import pdb
@@ -135,6 +136,10 @@ def train():
         opt.senti_fc_feats, opt.senti_att_feats, img_det_concepts,
         img_det_sentiments, img_senti_labels['val'], model.captioner.pad_id,
         opt.num_concepts, opt.num_sentiments, opt.rl_bs, opt.rl_num_works, shuffle=False)
+    senti_test_data = get_rl_senti_dataloader(
+        opt.senti_fc_feats, opt.senti_att_feats, img_det_concepts,
+        img_det_sentiments, img_senti_labels['test'], model.captioner.pad_id,
+        opt.num_concepts, opt.num_sentiments, opt.rl_bs, opt.rl_num_works, shuffle=False)
 
     model.set_ciderd_scorer(img_captions)
     lms = {}
@@ -171,25 +176,65 @@ def train():
             print('fact_val_loss:', fact_val_loss)
 
             # test
-            results = []
-            det_sentis = {}
-            for data_item in tqdm.tqdm(fact_test_data):
-                fns, fc_feats, att_feats, (caps_tensor, lengths), cpts_tensor, sentis_tensor, ground_truth = data_item
-                fc_feats = fc_feats.to(opt.device)
-                att_feats = att_feats.to(opt.device)
-                cpts_tensor = cpts_tensor.to(opt.device)
-                sentis_tensor = sentis_tensor.to(opt.device)
-                del data_item
+            results = defaultdict(list)
+            det_sentis = defaultdict(dict)
+            senti_imgs_num = 0
+            senti_imgs_wrong_num = 0
+            for data_type, data in [('fact', fact_test_data), ('senti', senti_test_data)]:
+                print('----------test:', data_type)
+                for data_item in tqdm.tqdm(data):
+                    if data_type == 'fact':
+                        fns, fc_feats, att_feats, (caps_tensor, lengths), cpts_tensor, sentis_tensor, ground_truth = data_item
+                    elif data_type == 'senti':
+                        fns, fc_feats, att_feats, cpts_tensor, sentis_tensor, senti_labels = data_item
+                        senti_labels = senti_labels.to(opt.device)
+                        senti_labels = [opt.sentiment_categories[int(idx)] for idx in senti_labels]
+                    else:
+                        raise Exception('data_type(%s) is wrong!' % data_type)
+                    fc_feats = fc_feats.to(opt.device)
+                    att_feats = att_feats.to(opt.device)
+                    cpts_tensor = cpts_tensor.to(opt.device)
+                    sentis_tensor = sentis_tensor.to(opt.device)
 
-                for i, fn in enumerate(fns):
-                    captions, det_img_sentis = model.sample(
-                        fc_feats[i], att_feats[i], cpts_tensor[i], sentis_tensor[i],
-                        beam_size=opt.beam_size)
-                    results.append({'image_id': fn, 'caption': captions[0]})
-                    det_sentis[fn] = det_img_sentis[0]
+                    for i, fn in enumerate(fns):
+                        captions, det_img_sentis = model.sample(
+                            fc_feats[i], att_feats[i], cpts_tensor[i],
+                            sentis_tensor[i], beam_size=opt.beam_size)
+                        results[data_type].append({'image_id': fn, 'caption': captions[0]})
+                        det_sentis[data_type][fn] = det_img_sentis[0]
+                        if data_type == 'senti':
+                            senti_imgs_num += 1
+                            if det_img_sentis[0] != senti_labels[i]:
+                                senti_imgs_wrong_num += 1
 
-            json.dump(results, open(os.path.join(result_dir, 'result_%d.json' % epoch), 'w'))
-            json.dump(det_sentis, open(os.path.join(result_dir, 'result_%d_sentis.json' % epoch), 'w'))
+            det_sentis_wrong_rate = senti_imgs_wrong_num / senti_imgs_num
+
+            for data_type in results:
+                json.dump(results[data_type],
+                          open(os.path.join(result_dir, 'result_%d_%s.json' % (epoch, data_type)), 'w'))
+                wr = det_sentis_wrong_rate
+                if data_type == 'fact':
+                    wr = 0
+                json.dump(det_sentis[data_type],
+                          open(os.path.join(result_dir, 'result_%d_sentis_%s_%s.json' % (epoch, wr, data_type)), 'w'))
+
+            sents = {'fact': defaultdict(str), 'senti': defaultdict(str)}
+            sents_w = {'fact': defaultdict(str), 'senti': defaultdict(str)}
+            for data_type, ress in results.items():
+                for res in ress:
+                    fn = res['image_id']
+                    caption = res['caption']
+                    senti = det_sentis[data_type][fn]
+                    sents_w[data_type][senti] += caption + '\n'
+                    caption = [str(word2idx[w]) for w in caption.split()] + [str(word2idx['<EOS>'])]
+                    caption = ' '.join(caption) + '\n'
+                    sents[data_type][senti] += caption
+            for data_type in sents:
+                for senti in sents[data_type]:
+                    with open(os.path.join(result_dir, 'result_%d_%s_%s.txt' % (epoch, senti, data_type)), 'w') as f:
+                        f.write(sents[data_type][senti])
+                    with open(os.path.join(result_dir, 'result_%d_%s_%s_w.txt' % (epoch, senti, data_type)), 'w') as f:
+                        f.write(sents_w[data_type][senti])
 
         # if previous_loss is not None and senti_val_loss[0] > previous_loss[0] \
         #         and fact_val_loss[0] > previous_loss[1]:
