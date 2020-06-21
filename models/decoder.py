@@ -94,7 +94,8 @@ class Detector(nn.Module):
             cap_loss = self.cap_rl_crit(sample_logprobs, seq_masks, rewards)
             
             all_losses[0] += float(senti_reward[:, 0].sum())
-            all_losses[1] += float(fact_reward[:, 0].sum())
+            if data_type == 'fact':
+                all_losses[1] += float(fact_reward[:, 0].sum())
             all_losses[2] += float(s_loss)
 
             if training:
