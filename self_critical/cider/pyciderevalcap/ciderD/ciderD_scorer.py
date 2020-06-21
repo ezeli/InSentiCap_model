@@ -191,14 +191,7 @@ class CiderScorer(object):
             scores.append(score_avg)
         return scores
 
-    def compute_score(self, force_update_df=False):
-        # compute idf
-        # if force_update_df or self.document_frequency is None:
-        #     self.document_frequency = compute_doc_freq(self.crefs)
-        #     # assert to check document frequency
-        #     assert(len(self.ctest) >= max(self.document_frequency.values()))
-        #     self.ref_len = np.log(float(len(self.crefs)))
-        #     # import json for now and write the corresponding files
+    def compute_score(self):
         # compute cider score
         score = self.compute_cider()
         return np.mean(np.array(score)), np.array(score)

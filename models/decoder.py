@@ -6,8 +6,7 @@ from .captioner import Captioner
 from .sentiment_detector import SentimentDetector
 # import sys
 # sys.path.append("../")
-from self_critical.utils import get_ciderd_scorer, get_self_critical_reward, \
-    get_lm_reward, RewardCriterion
+from self_critical.utils import get_ciderd_scorer, get_self_critical_reward, RewardCriterion
 
 
 def clip_gradient(optimizer, grad_clip=0.1):
@@ -59,10 +58,9 @@ class Detector(nn.Module):
             sentis_tensor = sentis_tensor.to(device)
             del data_item
 
-            # det_sentis, det_senti_features = self.senti_detector(att_feats)  # [bs, num_sentis], [bs, 14, 14]
-            det_sentis, det_senti_features = None, None  # [bs, num_sentis], [bs, 14, 14]
+            det_sentis, det_senti_features = self.senti_detector(att_feats)  # [bs, num_sentis], [bs, 14, 14]
             if data_type == 'fact':
-                # senti_labels = det_sentis.argmax(-1).detach()  # bs
+                senti_labels = det_sentis.argmax(-1).detach()  # bs
                 s_loss = 0
             else:
                 s_loss = self.senti_crit(det_sentis, senti_labels)
@@ -114,9 +112,8 @@ class Detector(nn.Module):
     def sample(self, fc_feats, att_feats, cpts_tensor, sentis_tensor,
                beam_size=3, decoding_constraint=1):
         self.eval()
-        # att_feats = att_feats.unsqueeze(0)
-        # _, senti_features, det_img_sentis, _ = self.senti_detector.sample(att_feats)
-        senti_features, det_img_sentis = None, None
+        att_feats = att_feats.unsqueeze(0)
+        _, senti_features, det_img_sentis, _ = self.senti_detector.sample(att_feats)
         captions, _ = self.captioner.sample(
             fc_feats, att_feats, cpts_tensor, senti_features, sentis_tensor,
             beam_size, decoding_constraint, self.max_seq_len)

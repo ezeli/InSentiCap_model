@@ -13,9 +13,10 @@ def array_to_str(arr, sos_token, eos_token):
         arr = arr[1:]
     out = ''
     for i in range(len(arr)):
-        out += str(arr[i]) + ' '
         if arr[i] == eos_token:
             break
+        out += str(arr[i]) + ' '
+    out += str(eos_token)
     return out.strip()
 
 
@@ -37,24 +38,12 @@ def get_ciderd_scorer(split_captions, sos_token, eos_token):
     return scorer
 
 
-def normalization(data, threshold=1):
-    _range = np.max(abs(data)) / threshold
-    return data / _range
-
-
-def standardization(data):
-    mu = np.mean(data, axis=0)
-    sigma = np.std(data, axis=0)
-    return (data - mu) / sigma
-
-
 def get_self_critical_reward(sample_captions, greedy_captions, fns, ground_truth,
                              sos_token, eos_token, scorer):
     batch_size = len(fns)
     sample_captions = sample_captions.cpu().numpy()
     greedy_captions = greedy_captions.cpu().numpy()
     assert sample_captions.shape[0] == greedy_captions.shape[0] == batch_size
-    max_seq_len = sample_captions.shape[1] + 1
     sample_result = []
     greedy_result = []
     gts = {}
@@ -63,9 +52,10 @@ def get_self_critical_reward(sample_captions, greedy_captions, fns, ground_truth
         greedy_result.append({'image_id': fn, 'caption': [array_to_str(greedy_captions[i], sos_token, eos_token)]})
         caps = []
         for cap in ground_truth[fn]:
-            caps.append(array_to_str(cap[:max_seq_len], sos_token, eos_token))
+            caps.append(array_to_str(cap, sos_token, eos_token))
         gts[fn] = caps
     all_result = sample_result + greedy_result
+    _, scores = scorer.compute_score(gts, all_result)
     if isinstance(scorer, CiderD):
         _, scores = scorer.compute_score(gts, all_result)
     elif isinstance(scorer, Bleu):
@@ -75,7 +65,6 @@ def get_self_critical_reward(sample_captions, greedy_captions, fns, ground_truth
         raise Exception('do not support this scorer: %s' % type(scorer))
 
     scores = scores[:batch_size] - scores[batch_size:]
-    # scores = normalization(scores)
     rewards = np.repeat(scores[:, np.newaxis], sample_captions.shape[1], 1)
     return rewards
 
@@ -90,10 +79,9 @@ def get_lm_reward(sample_captions, greedy_captions, senti_labels, sos_token, eos
         sample_res = array_to_str(sample_captions[i], sos_token, eos_token)
         greedy_res = array_to_str(greedy_captions[i], sos_token, eos_token)
         senti_lm = lms[senti_labels[i]]
-        scores.append(senti_lm.score(sample_res) - senti_lm.score(greedy_res))
-        # rewards.append(senti_lm.perplexity(greedy_res) - senti_lm.perplexity(sample_res))
+        scores.append(senti_lm.score(greedy_res) - senti_lm.score(sample_res))
+        # scores.append(senti_lm.perplexity(greedy_res) - senti_lm.perplexity(sample_res))
     scores = np.array(scores)
-    # scores = normalization(scores)
     rewards = np.repeat(scores[:, np.newaxis], sample_captions.shape[1], 1)
     return rewards
 
