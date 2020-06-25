@@ -234,7 +234,7 @@ class Captioner(nn.Module):
                 else:
                     sample_ind = sample_mask.nonzero().view(-1)
                     it = captions[:, i].clone()  # bs
-                    prob_prev = outputs[i - 1].detach().softmax(dim=-1)  # bs*vocab_size, fetch prev distribution
+                    prob_prev = outputs[i - 1].detach().exp()  # bs*vocab_size, fetch prev distribution
                     it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
             else:
                 it = captions[:, i].clone()  # bs

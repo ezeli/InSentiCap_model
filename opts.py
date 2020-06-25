@@ -34,7 +34,7 @@ def parse_opt():
     parser.add_argument('--xe_num_works', type=int, default=2)
 
     parser.add_argument('--scheduled_sampling_start', type=int, default=0)
-    parser.add_argument('--scheduled_sampling_increase_every', type=int, default=5)
+    parser.add_argument('--scheduled_sampling_increase_every', type=int, default=4)
     parser.add_argument('--scheduled_sampling_increase_prob', type=float, default=0.05)
     parser.add_argument('--scheduled_sampling_max_prob', type=float, default=0.25)
 
