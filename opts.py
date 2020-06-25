@@ -28,7 +28,7 @@ def parse_opt():
     # train full model
     # xe
     parser.add_argument('--xe_lr', type=float, default=4e-4)
-    parser.add_argument('--xe_bs', type=int, default=40)
+    parser.add_argument('--xe_bs', type=int, default=20)
     parser.add_argument('--xe_resume', type=str, default='')
     parser.add_argument('--xe_epochs', type=int, default=40)
     parser.add_argument('--xe_num_works', type=int, default=2)
@@ -56,10 +56,10 @@ def parse_opt():
     # rl
     parser.add_argument('--rl_lrs', type=json.loads,
                         default='{"cap_lr": 4e-5, "senti_lr": 4e-5}')
-    parser.add_argument('--rl_bs', type=int, default=80)
+    parser.add_argument('--rl_bs', type=int, default=20)
     parser.add_argument('--rl_num_works', type=int, default=2)
     parser.add_argument('--rl_resume', type=str, default='')
-    parser.add_argument('--rl_xe_resume', type=str, default='checkpoint/xe/model_20_2.5975_2.2852_0620-1607.pth')
+    parser.add_argument('--rl_xe_resume', type=str, default='checkpoint/xe/model_25_2.6538_2.2727_0625-0335.pth')
     parser.add_argument('--rl_senti_resume', type=str, default='checkpoint/sentiment/model-10.pth')
     parser.add_argument('--rl_epochs', type=int, default=20)
     parser.add_argument('--rl_fact_times', type=int, default=1)
@@ -131,5 +131,5 @@ def parse_opt():
 
     args.settings = settings
     args.use_gpu = torch.cuda.is_available()
-    args.device = torch.device('cuda:0') if args.use_gpu else torch.device('cpu')
+    args.device = torch.device('cuda:1') if args.use_gpu else torch.device('cpu')
     return args

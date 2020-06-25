@@ -79,7 +79,7 @@ def get_lm_reward(sample_captions, greedy_captions, senti_labels, sos_token, eos
         sample_res = array_to_str(sample_captions[i], sos_token, eos_token)
         greedy_res = array_to_str(greedy_captions[i], sos_token, eos_token)
         senti_lm = lms[senti_labels[i]]
-        scores.append(senti_lm.score(greedy_res) - senti_lm.score(sample_res))
+        scores.append(np.sign(senti_lm.score(greedy_res) - senti_lm.score(sample_res)))
         # scores.append(senti_lm.perplexity(greedy_res) - senti_lm.perplexity(sample_res))
     scores = np.array(scores)
     rewards = np.repeat(scores[:, np.newaxis], sample_captions.shape[1], 1)
