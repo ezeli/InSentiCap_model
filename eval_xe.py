@@ -27,15 +27,13 @@ print("====> loaded checkpoint '{}', epoch: {}".
 model.to(opt.device)
 model.eval()
 
-split = 'test'
 test_captions = {}
-for fn, caps in img_captions[split].items():
-    test_captions[fn] = caps[:1]
-
-train_data = get_caption_dataloader(f_fc, f_att, test_captions,
-                                    img_det_concepts, idx2word,
-                                    idx2word.index('<PAD>'), opt.max_seq_len,
-                                    opt.num_concepts, opt.xe_bs)
+for fn in img_captions['test']:
+    test_captions[fn] = [[]]
+test_data = get_caption_dataloader(opt.fc_feats, opt.att_feats, test_captions,
+                                   img_det_concepts, idx2word.index('<PAD>'),
+                                   opt.max_seq_len, opt.num_concepts, opt.xe_bs,
+                                   opt.xe_num_works, shuffle=False)
 
 results = []
 for fns, fc_feats, att_feats, _, cpts_tensor in tqdm.tqdm(train_data):

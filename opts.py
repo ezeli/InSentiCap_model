@@ -56,10 +56,10 @@ def parse_opt():
     # rl
     parser.add_argument('--rl_lrs', type=json.loads,
                         default='{"cap_lr": 4e-5, "senti_lr": 4e-5}')
-    parser.add_argument('--rl_bs', type=int, default=20)
+    parser.add_argument('--rl_bs', type=int, default=40)
     parser.add_argument('--rl_num_works', type=int, default=2)
     parser.add_argument('--rl_resume', type=str, default='')
-    parser.add_argument('--rl_xe_resume', type=str, default='checkpoint/xe/model_25_2.6538_2.2727_0625-0335.pth')
+    parser.add_argument('--rl_xe_resume', type=str, default='checkpoint/xe/model_25_2.6744_2.2833_0627-0133.pth')
     parser.add_argument('--rl_senti_resume', type=str, default='checkpoint/sentiment/model-10.pth')
     parser.add_argument('--rl_epochs', type=int, default=20)
     parser.add_argument('--rl_fact_times', type=int, default=1)
@@ -92,6 +92,7 @@ def parse_opt():
     parser.add_argument('--senti_att_feats', type=str, default='./data/features/sentiment/feats_att.h5')
     parser.add_argument('--checkpoint', type=str, default='./checkpoint/')
     parser.add_argument('--lm_dir', type=str, default='./data/corpus')
+    parser.add_argument('--sentence_sentiment_classifier', type=str, default='./checkpoint/sentiment/sentence_sentiment_classifier.pkl')
     parser.add_argument('--max_seq_len', type=int, default=16)
     parser.add_argument('--num_concepts', type=int, default=10)
     parser.add_argument('--num_sentiments', type=int, default=5)
@@ -131,5 +132,5 @@ def parse_opt():
 
     args.settings = settings
     args.use_gpu = torch.cuda.is_available()
-    args.device = torch.device('cuda:1') if args.use_gpu else torch.device('cpu')
+    args.device = torch.device('cuda:0') if args.use_gpu else torch.device('cpu')
     return args

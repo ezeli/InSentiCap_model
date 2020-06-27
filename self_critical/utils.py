@@ -7,7 +7,7 @@ from .cider.pyciderevalcap.ciderD.ciderD import CiderD
 from .bleu.bleu import Bleu
 
 
-def array_to_str(arr, sos_token, eos_token):
+def _array_to_str(arr, sos_token, eos_token):
     arr = list(arr)
     if arr[0] == sos_token:
         arr = arr[1:]
@@ -20,6 +20,20 @@ def array_to_str(arr, sos_token, eos_token):
     return out.strip()
 
 
+def _extract_feature(arr, sos_token, eos_token):
+    arr = list(arr)
+    if arr[0] == sos_token:
+        arr = arr[1:]
+    feature = {}
+    for i in range(len(arr)):
+        if arr[i] == eos_token:
+            break
+        feature[arr[i]] = True
+    feature[eos_token] = True
+
+    return feature
+
+
 def get_ciderd_scorer(split_captions, sos_token, eos_token):
     print('====> get_ciderd_scorer begin')
     captions = {}
@@ -30,7 +44,7 @@ def get_ciderd_scorer(split_captions, sos_token, eos_token):
     for caps in tqdm.tqdm(captions.values()):
         ref_idxs = []
         for cap in caps:
-            ref_idxs.append(array_to_str(cap, sos_token, eos_token))
+            ref_idxs.append(_array_to_str(cap, sos_token, eos_token))
         refs_idxs.append(ref_idxs)
 
     scorer = CiderD(refs=refs_idxs)
@@ -48,11 +62,11 @@ def get_self_critical_reward(sample_captions, greedy_captions, fns, ground_truth
     greedy_result = []
     gts = {}
     for i, fn in enumerate(fns):
-        sample_result.append({'image_id': fn, 'caption': [array_to_str(sample_captions[i], sos_token, eos_token)]})
-        greedy_result.append({'image_id': fn, 'caption': [array_to_str(greedy_captions[i], sos_token, eos_token)]})
+        sample_result.append({'image_id': fn, 'caption': [_array_to_str(sample_captions[i], sos_token, eos_token)]})
+        greedy_result.append({'image_id': fn, 'caption': [_array_to_str(greedy_captions[i], sos_token, eos_token)]})
         caps = []
         for cap in ground_truth[fn]:
-            caps.append(array_to_str(cap, sos_token, eos_token))
+            caps.append(_array_to_str(cap, sos_token, eos_token))
         gts[fn] = caps
     all_result = sample_result + greedy_result
     _, scores = scorer.compute_score(gts, all_result)
@@ -76,11 +90,28 @@ def get_lm_reward(sample_captions, greedy_captions, senti_labels, sos_token, eos
     senti_labels = senti_labels.cpu().numpy()
     scores = []
     for i in range(batch_size):
-        sample_res = array_to_str(sample_captions[i], sos_token, eos_token)
-        greedy_res = array_to_str(greedy_captions[i], sos_token, eos_token)
+        sample_res = _array_to_str(sample_captions[i], sos_token, eos_token)
+        greedy_res = _array_to_str(greedy_captions[i], sos_token, eos_token)
         senti_lm = lms[senti_labels[i]]
         scores.append(np.sign(senti_lm.score(greedy_res) - senti_lm.score(sample_res)))
         # scores.append(senti_lm.perplexity(greedy_res) - senti_lm.perplexity(sample_res))
+    scores = np.array(scores)
+    rewards = np.repeat(scores[:, np.newaxis], sample_captions.shape[1], 1)
+    return rewards
+
+
+def get_cls_reward(sample_captions, greedy_captions, senti_labels, sos_token, eos_token, sent_senti_cls):
+    batch_size = sample_captions.size(0)
+    sample_captions = sample_captions.cpu().numpy()
+    greedy_captions = greedy_captions.cpu().numpy()
+    senti_labels = senti_labels.cpu().numpy()
+    scores = []
+    for i in range(batch_size):
+        sample_feat = _extract_feature(sample_captions[i], sos_token, eos_token)
+        greedy_feat = _extract_feature(greedy_captions[i], sos_token, eos_token)
+        prob_rests = sent_senti_cls.prob_classify_many([sample_feat, greedy_feat])
+        scores.append(prob_rests[0]._prob_dict[senti_labels[i]] -
+                      prob_rests[1]._prob_dict[senti_labels[i]])
     scores = np.array(scores)
     rewards = np.repeat(scores[:, np.newaxis], sample_captions.shape[1], 1)
     return rewards

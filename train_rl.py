@@ -10,6 +10,7 @@ import traceback
 from bdb import BdbQuit
 import torch
 import kenlm
+import pickle
 
 from opts import parse_opt
 from models.decoder import Detector
@@ -146,6 +147,9 @@ def train():
     for senti, i in senti_label2idx.items():
         lms[i] = kenlm.LanguageModel(os.path.join(opt.lm_dir, '%s_id.kenlm.arpa' % senti))
     model.set_lms(lms)
+
+    sent_senti_cls = pickle.load(open(opt.sentence_sentiment_classifier, 'rb'))
+    model.set_sent_senti_cls(sent_senti_cls)
 
     checkpoint = os.path.join(opt.checkpoint, 'rl')
     if not os.path.exists(checkpoint):

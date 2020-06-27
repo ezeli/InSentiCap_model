@@ -7,7 +7,7 @@ from .sentiment_detector import SentimentDetector
 # import sys
 # sys.path.append("../")
 from self_critical.utils import get_ciderd_scorer, get_self_critical_reward, \
-    get_lm_reward, RewardCriterion
+    get_lm_reward, RewardCriterion, get_cls_reward
 
 
 def clip_gradient(optimizer, grad_clip=0.1):
@@ -32,6 +32,7 @@ class Detector(nn.Module):
         self.senti_optim, self.senti_crit = self.senti_detector.get_optim_criterion(lrs['senti_lr'])
 
         self.ciderd_scorer = None
+        self.sent_senti_cls = None
         self.lms = {}
 
     def set_ciderd_scorer(self, captions):
@@ -40,9 +41,12 @@ class Detector(nn.Module):
     def set_lms(self, lms):
         self.lms = lms
 
+    def set_sent_senti_cls(self, sent_senti_cls):
+        self.sent_senti_cls = sent_senti_cls
+
     def forward(self, data, data_type, training):
         self.train(training)
-        all_losses = [0.0, 0.0, 0.0]
+        all_losses = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         device = next(self.parameters()).device
         for data_item in tqdm.tqdm(data):
             if data_type == 'fact':
@@ -84,19 +88,27 @@ class Detector(nn.Module):
             else:
                 fact_reward = 0
 
-            senti_reward = get_lm_reward(
+            lm_reward = get_lm_reward(
                 sample_captions, greedy_captions, senti_labels,
                 self.captioner.sos_id, self.captioner.eos_id, self.lms)
-            senti_reward = torch.from_numpy(senti_reward).float().to(device)
+            lm_reward = torch.from_numpy(lm_reward).float().to(device)
 
-            rewards = 0.01 * senti_reward + fact_reward
+            cls_reward = get_cls_reward(
+                sample_captions, greedy_captions, senti_labels,
+                self.captioner.sos_id, self.captioner.eos_id, self.sent_senti_cls)
+            cls_reward = torch.from_numpy(cls_reward).float().to(device)
+
+            rewards = fact_reward + 0.01 * lm_reward + cls_reward
             # rewards = fact_reward
             cap_loss = self.cap_rl_crit(sample_logprobs, seq_masks, rewards)
-            
-            all_losses[0] += float(senti_reward[:, 0].sum())
+
+            all_losses[0] += float(rewards[:, 0].sum())
             if data_type == 'fact':
                 all_losses[1] += float(fact_reward[:, 0].sum())
-            all_losses[2] += float(s_loss)
+            all_losses[2] += float(lm_reward[:, 0].sum())
+            all_losses[3] += float(cls_reward[:, 0].sum())
+            all_losses[4] += float(s_loss)
+            all_losses[5] += float(cap_loss)
 
             if training:
                 if data_type == 'senti':
@@ -110,7 +122,9 @@ class Detector(nn.Module):
                 clip_gradient(self.cap_optim)
                 self.cap_optim.step()
 
-        return - all_losses[0] / len(data), - all_losses[1] / len(data), all_losses[2] / len(data)
+        return - all_losses[0] / len(data), - all_losses[1] / len(data), \
+               - all_losses[2] / len(data), - all_losses[3] / len(data), \
+               all_losses[4] / len(data), all_losses[5] / len(data)
 
     def sample(self, fc_feats, att_feats, cpts_tensor, sentis_tensor,
                beam_size=3, decoding_constraint=1):
