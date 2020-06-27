@@ -117,6 +117,18 @@ def get_cls_reward(sample_captions, greedy_captions, senti_labels, sos_token, eo
     return rewards
 
 
+def get_senti_words_reward(sample_captions, senti_words):
+    batch_size = sample_captions.size(0)
+    sample_captions = sample_captions.cpu().numpy()
+    senti_words = senti_words.cpu().numpy()
+    rewards = np.zeros(sample_captions.shape, dtype=float)
+    for i in range(batch_size):
+        for j, w in enumerate(sample_captions[i]):
+            if w in senti_words[i]:
+                rewards[i, j] = 1
+    return rewards
+
+
 class RewardCriterion(nn.Module):
     def __init__(self):
         super(RewardCriterion, self).__init__()
