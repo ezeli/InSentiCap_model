@@ -132,5 +132,5 @@ def parse_opt():
 
     args.settings = settings
     args.use_gpu = torch.cuda.is_available()
-    args.device = torch.device('cuda:1') if args.use_gpu else torch.device('cpu')
+    args.device = torch.device('cuda:0') if args.use_gpu else torch.device('cpu')
     return args

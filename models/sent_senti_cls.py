@@ -22,7 +22,7 @@ class SentenceSentimentClassifier(nn.Module):
             nn.Dropout(settings['dropout_p'])
         )
         num_senti = len(sentiment_categories)
-        if settings['rnn_bidirectional']:
+        if rnn_bidirectional:
             self.classifier = nn.Linear(2*settings['rnn_hid_dim'], num_senti)
         else:
             self.classifier = nn.Linear(settings['rnn_hid_dim'], num_senti)

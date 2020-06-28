@@ -50,9 +50,10 @@ def train():
     print('====> process senti_corpus end')
 
     train_data = get_senti_sents_dataloader(train_set, word2idx['<PAD>'], opt.max_seq_len)
-    val_data = get_senti_sents_dataloader(train_set, word2idx['<PAD>'], opt.max_seq_len, shuffle=False)
+    val_data = get_senti_sents_dataloader(val_set, word2idx['<PAD>'], opt.max_seq_len, shuffle=False)
 
     model = SentenceSentimentClassifier(idx2word, opt.sentiment_categories, opt.settings)
+    model.to(opt.device)
     lr = 0.01
     optimizer, criterion = model.get_optim_and_crit(lr)
 
