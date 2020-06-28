@@ -47,11 +47,11 @@ def compute_cls(captions_file_prefix, data_type):
         wrong_num = 0
         with torch.no_grad():
             for sentis, (caps_tensor, lengths) in tqdm.tqdm(val_data):
-                sentis = sentis.to(opt.device)
-                caps_tensor = caps_tensor.to(opt.device)
+                sentis = sentis.to(device)
+                caps_tensor = caps_tensor.to(device)
 
                 rest, _ = model.sample(caps_tensor, lengths)
-                rest = torch.LongTensor(np.array(rest)).to(opt.device)
+                rest = torch.LongTensor(np.array(rest)).to(device)
                 all_num += int(sentis.size(0))
                 wrong_num += int((sentis != rest).sum())
         wrong_rate = wrong_num / all_num
