@@ -93,6 +93,7 @@ def parse_opt():
     parser.add_argument('--checkpoint', type=str, default='./checkpoint/')
     parser.add_argument('--lm_dir', type=str, default='./data/corpus')
     parser.add_argument('--sentence_sentiment_classifier', type=str, default='./checkpoint/sentiment/sentence_sentiment_classifier.pkl')
+    parser.add_argument('--sentence_sentiment_classifier_rnn', type=str, default='./checkpoint/sent_senti_cls/model_15_0.0043_0.0110_0628-1122.pth')
     parser.add_argument('--max_seq_len', type=int, default=16)
     parser.add_argument('--num_concepts', type=int, default=10)
     parser.add_argument('--num_sentiments', type=int, default=5)

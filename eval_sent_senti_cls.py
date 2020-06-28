@@ -63,4 +63,4 @@ for senti, val_data in val_datas.items():
             all_num += int(sentis.size(0))
             wrong_num += int((sentis != rest).sum())
     wrong_rate = wrong_num / all_num
-    print('%s wrong_rate: %s' % (senti, wrong_rate))
+    print('%s wrong_rate: %.6f' % (senti, wrong_rate))
