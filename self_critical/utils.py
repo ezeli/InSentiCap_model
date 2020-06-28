@@ -128,7 +128,7 @@ def get_cls_reward(sample_captions, sample_masks, greedy_captions, greedy_masks,
     scores = []
     for i in range(batch_size):
         senti_id = senti_labels[i]
-        scores.append(sample_preds[i][senti_id] - greedy_preds[i][senti_id])
+        scores.append(float(sample_preds[i][senti_id] - greedy_preds[i][senti_id]))
     scores = np.array(scores)
     rewards = np.repeat(scores[:, np.newaxis], sample_captions.shape[1], 1)
     return rewards
