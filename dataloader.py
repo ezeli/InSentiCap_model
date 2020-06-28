@@ -147,6 +147,19 @@ def create_collate_fn(name, pad_index=0, max_seq_len=17, num_concepts=10,
         labels = torch.LongTensor(np.array(labels))
         return fns, att_feats, labels
 
+    def senti_sents_collate_fn(dataset):
+        dataset.sort(key=lambda p: len(p[1]), reverse=True)
+        sentis, caps = zip(*dataset)
+        sentis = torch.LongTensor(np.array(sentis))
+
+        lengths = [min(len(c), max_seq_len) for c in caps]
+        caps_tensor = torch.LongTensor(len(caps), lengths[0]).fill_(pad_index)
+        for i, c in enumerate(caps):
+            end = lengths[i]
+            caps_tensor[i, :end] = torch.LongTensor(c[:end])
+
+        return sentis, (caps_tensor, lengths)
+
     if name == 'caption':
         return caption_collate_fn
     elif name == 'concept':
@@ -161,6 +174,8 @@ def create_collate_fn(name, pad_index=0, max_seq_len=17, num_concepts=10,
         return rl_fact_collate_fn
     elif name == 'rl_senti':
         return rl_senti_collate_fn
+    elif name == 'senti_sents':
+        return senti_sents_collate_fn
 
 
 class CaptionDataset(data.Dataset):
@@ -317,6 +332,18 @@ class SentiImageDataset(data.Dataset):
         return len(self.img_senti_labels)
 
 
+class SentiSentDataset(data.Dataset):
+    def __init__(self, senti_sentences):
+        self.senti_sentences = senti_sentences
+
+    def __getitem__(self, index):
+        senti, sent = self.senti_sentences[index]
+        return senti, np.array(sent)
+
+    def __len__(self):
+        return len(self.senti_sentences)
+
+
 def get_caption_dataloader(fc_feats, att_feats, img_captions, img_det_concepts,
                            pad_index, max_seq_len, num_concepts,
                            batch_size, num_workers=0, shuffle=True):
@@ -421,4 +448,17 @@ def get_senti_image_dataloader(senti_att_feats, img_senti_labels,
                                  shuffle=shuffle,
                                  num_workers=num_workers,
                                  collate_fn=create_collate_fn('senti_image'))
+    return dataloader
+
+
+def get_senti_sents_dataloader(senti_sentences, pad_index, max_seq_len,
+                               batch_size=80, num_workers=2, shuffle=True):
+    dataset = SentiSentDataset(senti_sentences)
+    dataloader = data.DataLoader(dataset,
+                                 batch_size=batch_size,
+                                 shuffle=shuffle,
+                                 num_workers=num_workers,
+                                 collate_fn=create_collate_fn(
+                                     'senti_sents', pad_index=pad_index,
+                                     max_seq_len=max_seq_len))
     return dataloader
