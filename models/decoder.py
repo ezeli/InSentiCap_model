@@ -126,7 +126,7 @@ class Detector(nn.Module):
                 clip_gradient(self.cap_optim)
                 self.cap_optim.step()
 
-        return (loss / len(data) for loss in all_losses)
+        return list(loss / len(data) for loss in all_losses)
 
     def sample(self, fc_feats, att_feats, cpts_tensor, sentis_tensor,
                beam_size=3, decoding_constraint=1):
