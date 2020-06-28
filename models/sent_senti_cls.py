@@ -29,7 +29,7 @@ class SentenceSentimentClassifier(nn.Module):
 
     def forward(self, seqs, lengths):
         seqs = self.word_embed(seqs)  # [bs, max_seq_len, word_dim]
-        seqs = pack_padded_sequence(seqs, lengths, batch_first=True)
+        seqs = pack_padded_sequence(seqs, lengths, batch_first=True, enforce_sorted=False)
         out, _ = self.rnn(seqs)
         out = pad_packed_sequence(out, batch_first=True)[0]  # [bs, seq_len, rnn_hid]
         out = self.amp(out.permute(0, 2, 1)).view(out.size(0), -1)  # [bs, rnn_hid]

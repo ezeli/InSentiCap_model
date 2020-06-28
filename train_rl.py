@@ -154,6 +154,7 @@ def train():
     chkpoint = torch.load(opt.sentence_sentiment_classifier_rnn, map_location=lambda s, l: s)
     sent_senti_cls.load_state_dict(chkpoint['model'])
     sent_senti_cls.eval()
+    sent_senti_cls.to(opt.device)
     model.set_sent_senti_cls(sent_senti_cls)
 
     checkpoint = os.path.join(opt.checkpoint, 'rl')
