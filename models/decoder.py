@@ -75,7 +75,7 @@ class Detector(nn.Module):
                 sentis_tensor, self.max_seq_len, sample_max=0, mode='rl')
             self.eval()
             with torch.no_grad():
-                greedy_captions, _, _ = self.captioner(
+                greedy_captions, _, greedy_masks = self.captioner(
                     fc_feats, att_feats, cpts_tensor, det_senti_features,
                     sentis_tensor, self.max_seq_len, sample_max=1, mode='rl')
             self.train(training)
@@ -94,8 +94,8 @@ class Detector(nn.Module):
             lm_reward = torch.from_numpy(lm_reward).float().to(device)
 
             cls_reward = get_cls_reward(
-                sample_captions, greedy_captions, senti_labels,
-                self.captioner.sos_id, self.captioner.eos_id, self.sent_senti_cls)
+                sample_captions, seq_masks, greedy_captions, greedy_masks,
+                senti_labels, self.sent_senti_cls)
             cls_reward = torch.from_numpy(cls_reward).float().to(device)
 
             senti_words_reward = get_senti_words_reward(sample_captions, sentis_tensor)

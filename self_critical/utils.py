@@ -100,18 +100,35 @@ def get_lm_reward(sample_captions, greedy_captions, senti_labels, sos_token, eos
     return rewards
 
 
-def get_cls_reward(sample_captions, greedy_captions, senti_labels, sos_token, eos_token, sent_senti_cls):
+# def get_cls_reward(sample_captions, greedy_captions, senti_labels, sos_token, eos_token, sent_senti_cls):
+#     batch_size = sample_captions.size(0)
+#     sample_captions = sample_captions.cpu().numpy()
+#     greedy_captions = greedy_captions.cpu().numpy()
+#     senti_labels = senti_labels.cpu().numpy()
+#     scores = []
+#     for i in range(batch_size):
+#         sample_feat = _extract_feature(sample_captions[i], sos_token, eos_token)
+#         greedy_feat = _extract_feature(greedy_captions[i], sos_token, eos_token)
+#         prob_rests = sent_senti_cls.prob_classify_many([sample_feat, greedy_feat])
+#         scores.append(prob_rests[0]._prob_dict[senti_labels[i]] -
+#                       prob_rests[1]._prob_dict[senti_labels[i]])
+#     scores = np.array(scores)
+#     rewards = np.repeat(scores[:, np.newaxis], sample_captions.shape[1], 1)
+#     return rewards
+
+
+def get_cls_reward(sample_captions, sample_masks, greedy_captions, greedy_masks, senti_labels, sent_senti_cls):
     batch_size = sample_captions.size(0)
-    sample_captions = sample_captions.cpu().numpy()
-    greedy_captions = greedy_captions.cpu().numpy()
-    senti_labels = senti_labels.cpu().numpy()
+    sample_lens = list(sample_masks.sum(dim=-1).type(torch.int).cpu().numpy())
+    greedy_lens = list(greedy_masks.sum(dim=-1).type(torch.int).cpu().numpy())
+    with torch.no_grad():
+        sample_preds = sent_senti_cls(sample_captions, sample_lens)
+        greedy_preds = sent_senti_cls(greedy_captions, greedy_lens)
+
     scores = []
     for i in range(batch_size):
-        sample_feat = _extract_feature(sample_captions[i], sos_token, eos_token)
-        greedy_feat = _extract_feature(greedy_captions[i], sos_token, eos_token)
-        prob_rests = sent_senti_cls.prob_classify_many([sample_feat, greedy_feat])
-        scores.append(prob_rests[0]._prob_dict[senti_labels[i]] -
-                      prob_rests[1]._prob_dict[senti_labels[i]])
+        senti_id = senti_labels[i]
+        scores.append(sample_preds[i][senti_id] - greedy_preds[i][senti_id])
     scores = np.array(scores)
     rewards = np.repeat(scores[:, np.newaxis], sample_captions.shape[1], 1)
     return rewards

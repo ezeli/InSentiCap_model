@@ -14,6 +14,7 @@ import pickle
 
 from opts import parse_opt
 from models.decoder import Detector
+from models.sent_senti_cls import SentenceSentimentClassifier
 from dataloader import get_rl_fact_dataloader, get_rl_senti_dataloader
 
 
@@ -148,7 +149,11 @@ def train():
         lms[i] = kenlm.LanguageModel(os.path.join(opt.lm_dir, '%s_id.kenlm.arpa' % senti))
     model.set_lms(lms)
 
-    sent_senti_cls = pickle.load(open(opt.sentence_sentiment_classifier, 'rb'))
+    # sent_senti_cls = pickle.load(open(opt.sentence_sentiment_classifier, 'rb'))
+    sent_senti_cls = SentenceSentimentClassifier(idx2word, opt.sentiment_categories, opt.settings)
+    chkpoint = torch.load(opt.sentence_sentiment_classifier_rnn, map_location=lambda s, l: s)
+    sent_senti_cls.load_state_dict(chkpoint['model'])
+    sent_senti_cls.eval()
     model.set_sent_senti_cls(sent_senti_cls)
 
     checkpoint = os.path.join(opt.checkpoint, 'rl')
