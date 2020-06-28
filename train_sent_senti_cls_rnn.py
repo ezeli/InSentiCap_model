@@ -89,8 +89,8 @@ def train():
 
                 rest, _ = model.sample(caps_tensor, lengths)
                 rest = torch.LongTensor(np.array(rest)).to(opt.device)
-                all_num += sentis.size(0)
-                wrong_num += (sentis != rest).sum()
+                all_num += int(sentis.size(0))
+                wrong_num += int((sentis != rest).sum())
         wrong_rate = wrong_num / all_num
 
         if previous_wrong_rate is not None and wrong_rate > previous_wrong_rate:
