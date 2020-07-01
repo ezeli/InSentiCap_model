@@ -9,7 +9,7 @@ from dataloader import get_senti_sents_dataloader
 device = torch.device('cuda:0')
 max_seq_len = 16
 
-eval_model = './checkpoint/sent_senti_cls/model_15_0.0043_0.0110_0628-1122.pth'
+eval_model = './checkpoint/sent_senti_cls/new/model_15_0.0043_0.0110_0628-1122.pth'
 print("====> loading checkpoint '{}'".format(eval_model))
 chkpoint = torch.load(eval_model, map_location=lambda s, l: s)
 idx2word = chkpoint['idx2word']

@@ -66,9 +66,10 @@ class Detector(nn.Module):
             det_sentis, det_senti_features = self.senti_detector(att_feats)  # [bs, num_sentis], [bs, 14, 14]
             if data_type == 'fact':
                 senti_labels = det_sentis.argmax(-1).detach()  # bs
-                s_loss = 0
-            else:
-                s_loss = self.senti_crit(det_sentis, senti_labels)
+            #     s_loss = 0
+            # else:
+            #     s_loss = self.senti_crit(det_sentis, senti_labels)
+            s_loss = self.senti_crit(det_sentis, senti_labels)
 
             sample_captions, sample_logprobs, seq_masks = self.captioner(
                 fc_feats, att_feats, cpts_tensor, det_senti_features,
@@ -101,7 +102,7 @@ class Detector(nn.Module):
             senti_words_reward = get_senti_words_reward(sample_captions, sentis_tensor)
             senti_words_reward = torch.from_numpy(senti_words_reward).float().to(device)
 
-            rewards = fact_reward + 0.01 * lm_reward + cls_reward + senti_words_reward
+            rewards = fact_reward + 0.01 * lm_reward  # + cls_reward + senti_words_reward
             # rewards = fact_reward
             cap_loss = self.cap_rl_crit(sample_logprobs, seq_masks, rewards)
 
@@ -115,11 +116,11 @@ class Detector(nn.Module):
             all_losses[6] += float(cap_loss)
 
             if training:
-                if data_type == 'senti':
-                    self.senti_optim.zero_grad()
-                    s_loss.backward(retain_graph=True)
-                    clip_gradient(self.senti_optim)
-                    self.senti_optim.step()
+                # if data_type == 'senti':
+                self.senti_optim.zero_grad()
+                s_loss.backward(retain_graph=True)
+                clip_gradient(self.senti_optim)
+                self.senti_optim.step()
 
                 self.cap_optim.zero_grad()
                 cap_loss.backward()
