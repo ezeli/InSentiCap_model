@@ -2,6 +2,7 @@ import sys
 import torch
 import tqdm
 import numpy as np
+import os
 
 from models.sent_senti_cls import SentenceSentimentClassifier
 from dataloader import get_senti_sents_dataloader
@@ -9,21 +10,30 @@ from dataloader import get_senti_sents_dataloader
 device = torch.device('cuda:0')
 max_seq_len = 16
 
-eval_model = './checkpoint/sent_senti_cls/new/model_15_0.0043_0.0110_0628-1122.pth'
-print("====> loading checkpoint '{}'".format(eval_model))
-chkpoint = torch.load(eval_model, map_location=lambda s, l: s)
-idx2word = chkpoint['idx2word']
-sentiment_categories = chkpoint['sentiment_categories']
-settings = chkpoint['settings']
-model = SentenceSentimentClassifier(idx2word, sentiment_categories, settings)
-model.load_state_dict(chkpoint['model'])
-print("====> loaded checkpoint '{}', epoch: {}".
-      format(eval_model, chkpoint['epoch']))
-model.to(device)
-model.eval()
-
 
 def compute_cls(captions_file_prefix, data_type):
+    dataset_name = 'coco'
+    if 'flickr30k' in captions_file_prefix:
+        dataset_name = 'flickr30k'
+    corpus_type = 'part'
+    if 'full' in captions_file_prefix:
+        corpus_type = 'full'
+
+    ss_cls_file = os.path.join('./checkpoint', 'sent_senti_cls', dataset_name, corpus_type, 'model-best.pth')
+    print("====> loading checkpoint '{}'".format(ss_cls_file))
+    chkpoint = torch.load(ss_cls_file, map_location=lambda s, l: s)
+    settings = chkpoint['settings']
+    idx2word = chkpoint['idx2word']
+    sentiment_categories = chkpoint['sentiment_categories']
+    assert dataset_name == chkpoint['dataset_name'], \
+        'dataset_name and resume model dataset_name are different'
+    assert corpus_type == chkpoint['corpus_type'], \
+        'corpus_type and resume model corpus_type are different'
+    model = SentenceSentimentClassifier(idx2word, sentiment_categories, settings)
+    model.load_state_dict(chkpoint['model'])
+    model.eval()
+    model.to(device)
+
     val_sets = {}
     val_sets['all'] = []
     for senti_id, senti in enumerate(sentiment_categories):
@@ -50,12 +60,12 @@ def compute_cls(captions_file_prefix, data_type):
                 sentis = sentis.to(device)
                 caps_tensor = caps_tensor.to(device)
 
-                rest, _ = model.sample(caps_tensor, lengths)
+                rest, _, _ = model.sample(caps_tensor, lengths)
                 rest = torch.LongTensor(np.array(rest)).to(device)
                 all_num += int(sentis.size(0))
                 wrong_num += int((sentis != rest).sum())
         wrong_rate = wrong_num / all_num
-        print('%s wrong_rate: %.6f' % (senti, wrong_rate))
+        print('%s acc_rate: %.6f' % (senti, 1 - wrong_rate))
 
 
 if __name__ == "__main__":

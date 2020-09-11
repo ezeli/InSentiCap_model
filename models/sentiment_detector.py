@@ -6,6 +6,7 @@ class SentimentDetector(nn.Module):
     def __init__(self, sentiment_categories, settings):
         super(SentimentDetector, self).__init__()
         self.sentiment_categories = sentiment_categories
+        self.neu_idx = sentiment_categories.index('neutral')
 
         self.convs = nn.Sequential()
         in_channels = settings['fc_feat_dim']
@@ -22,11 +23,9 @@ class SentimentDetector(nn.Module):
         # self.global_pool = nn.AdaptiveMaxPool2d(1)
         self.global_pool = nn.AdaptiveAvgPool2d(1)
 
-        # self.output = nn.Sequential(
-        #     *[nn.Linear(num_sentis, num_sentis) for _ in settings['sentiment_fcs_num']]
-        # )
-        self.output = nn.Linear(num_sentis, num_sentis)
-        # self.output1 = nn.Linear(14*14, num_sentis)
+        self.output = nn.Sequential(
+            *[nn.Linear(num_sentis, num_sentis) for _ in range(settings['sentiment_fcs_num'])]
+        )
 
     def forward(self, features):
         # [bz, 14, 14, fc_feat_dim]
@@ -43,23 +42,22 @@ class SentimentDetector(nn.Module):
             senti_features.view(shape[0], shape[1], -1))  # [bz, 1, 14*14]
         senti_features = senti_features.view(shape[0], shape[2], shape[3])  # [bz, 14, 14]
 
-        # output1 = self.output1(senti_featuresview(shape[0], -1))  # [bz, 1, num_sentis]
-        # output1 = output1.squeeze(1)  # [bz, num_sentis]
-        # output += output1  # [bz, num_sentis], TODO: or output two results respectively
-
         return output, senti_features
 
-    def sample(self, features):
+    def sample(self, features, senti_threshold=0):
         # [bz, 14, 14, fc_feat_dim]
         self.eval()
         output, senti_features = self.forward(features)
         output = output.softmax(dim=-1)
-        scores, idx = output.max(dim=-1)  # bz
+        scores, senti_labels = output.max(dim=-1)  # bz
+        replace_idx = (scores < senti_threshold).nonzero().view(-1)
+        senti_labels.index_copy_(0, replace_idx, senti_labels.new_zeros(len(replace_idx)).fill_(self.neu_idx))
+
         sentiments = []
-        for i in idx:
+        for i in senti_labels:
             sentiments.append(self.sentiment_categories[i])
 
-        return idx, senti_features, sentiments, scores
+        return senti_labels, senti_features, sentiments, scores
 
     def get_optim_criterion(self, lr, weight_decay=0):
         return torch.optim.Adam(self.parameters(), lr=lr, weight_decay=weight_decay),\

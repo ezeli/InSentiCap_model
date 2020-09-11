@@ -22,12 +22,8 @@ def clip_gradient(optimizer, grad_clip):
 
 
 def train():
-    f_senti_att = h5py.File(opt.senti_att_feats, mode='r')
-    img_senti_labels = json.load(open(opt.img_senti_labels, 'r'))
-
     senti_detector = SentimentDetector(opt.sentiment_categories, opt.settings)
     senti_detector.to(opt.device)
-
     lr = opt.senti_lr
     optimizer, criterion = senti_detector.get_optim_criterion(lr)
     if opt.senti_resume:
@@ -43,10 +39,31 @@ def train():
         print("====> loaded checkpoint '{}', epoch: {}"
               .format(opt.senti_resume, chkpoint['epoch']))
 
-    train_data = get_senti_image_dataloader(f_senti_att, img_senti_labels['train'],
-                                            opt.sentiment_categories, opt.senti_bs)
-    val_data = get_senti_image_dataloader(f_senti_att, img_senti_labels['val'],
-                                          opt.sentiment_categories, opt.senti_bs, shuffle=False)
+    img_senti_labels = json.load(open(opt.img_senti_labels, 'r'))
+
+    senti_label2idx = {}
+    for i, w in enumerate(opt.sentiment_categories):
+        senti_label2idx[w] = i
+    print('====> process image senti_labels begin')
+    senti_labels_id = {}
+    for split, senti_labels in img_senti_labels.items():
+        print('convert %s senti_labels to index' % split)
+        senti_labels_id[split] = []
+        for fn, senti_label in tqdm.tqdm(senti_labels):
+            senti_labels_id[split].append([fn, senti_label2idx[senti_label]])
+    img_senti_labels = senti_labels_id
+    print('====> process image senti_labels end')
+
+    f_senti_att = os.path.join(opt.feats_dir, 'sentiment', 'feats_att.h5')
+    train_data = get_senti_image_dataloader(
+        f_senti_att, img_senti_labels['train'],
+        opt.senti_bs, opt.senti_num_works)
+    val_data = get_senti_image_dataloader(
+        f_senti_att, img_senti_labels['val'],
+        opt.senti_bs, opt.senti_num_works, shuffle=False)
+    test_data = get_senti_image_dataloader(
+        f_senti_att, img_senti_labels['test'],
+        opt.senti_bs, opt.senti_num_works, shuffle=False)
 
     def forward(data, training=True):
         senti_detector.train(training)
@@ -54,14 +71,17 @@ def train():
         for _, att_feats, labels in tqdm.tqdm(data):
             att_feats = att_feats.to(opt.device)
             labels = labels.to(opt.device)
+            # (det_out, cls_out), _ = senti_detector(att_feats)
+            # det_loss = criterion(det_out, labels)
+            # cls_loss = criterion(cls_out, labels)
+            # loss = det_loss + cls_loss
             pred, _ = senti_detector(att_feats)
             loss = criterion(pred, labels)
             loss_val += loss.item()
             if training:
                 optimizer.zero_grad()
                 loss.backward()
-                # TODO
-                # clip_gradient(optimizer, opt.grad_clip)
+                clip_gradient(optimizer, opt.grad_clip)
                 optimizer.step()
         return loss_val / len(data)
 
@@ -76,14 +96,26 @@ def train():
         with torch.no_grad():
             val_loss = forward(val_data, training=False)
 
+            # test
+            corr_num = 0
+            all_num = 0
+            for _, att_feats, labels in tqdm.tqdm(test_data):
+                att_feats = att_feats.to(opt.device)
+                labels = labels.to(opt.device)
+                idx, _, _, _ = senti_detector.sample(att_feats)
+                corr_num += int(sum(labels == idx))
+                all_num += len(idx)
+            corr_rate = corr_num / all_num
+
         if previous_loss is not None and val_loss > previous_loss:
             lr = lr * 0.5
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
         previous_loss = val_loss
 
-        print('train_loss: %.4f, val_loss: %.4f' % (train_loss, val_loss))
-        if epoch in [5, 10, 15, 20, 25, 29]:
+        print('train_loss: %.4f, val_loss: %.4f, corr_rate: %.4f' %
+              (train_loss, val_loss, corr_rate))
+        if epoch == 0 or epoch > 5:
             chkpoint = {
                 'epoch': epoch,
                 'model': senti_detector.state_dict(),

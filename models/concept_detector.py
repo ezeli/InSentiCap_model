@@ -15,19 +15,15 @@ class ConceptDetector(nn.Module):
             nn.Dropout(settings['dropout_p']),
             nn.Linear(settings['concept_mid_him'], len(idx2concept)),
             nn.Sigmoid(),
-            # nn.Softmax(dim=-1),
         )
 
     def forward(self, features):
         # [bz, fc_feat_dim]
         return self.output(features)  # [bz, num_cpts]
 
-    def weight_cliping(self, limit=0.01):
-        for p in self.parameters():
-            p.data.clamp_(-limit, limit)
-
-    def sample(self, features, num=10):
+    def sample(self, features, num):
         # [bz, fc_feat_dim]
+        self.eval()
         out = self.output(features)  # [bz, num_cpts]
         scores, idx = out.sort(dim=-1, descending=True)
         scores = scores[:, :num]

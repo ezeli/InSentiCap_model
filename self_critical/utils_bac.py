@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import tqdm
-from collections import defaultdict
 
 from .cider.pyciderevalcap.ciderD.ciderD import CiderD
 from .bleu.bleu import Bleu
@@ -87,16 +86,17 @@ def get_self_critical_reward(sample_captions, greedy_captions, fns, ground_truth
 def get_lm_reward(sample_captions, greedy_captions, senti_labels, sos_token, eos_token, lms):
     batch_size = sample_captions.size(0)
     sample_captions = sample_captions.cpu().numpy()
-    greedy_captions = greedy_captions.cpu().numpy()
+    # greedy_captions = greedy_captions.cpu().numpy()
     senti_labels = senti_labels.cpu().numpy()
     scores = []
     for i in range(batch_size):
         sample_res = _array_to_str(sample_captions[i], sos_token, eos_token)
-        greedy_res = _array_to_str(greedy_captions[i], sos_token, eos_token)
+        # greedy_res = _array_to_str(greedy_captions[i], sos_token, eos_token)
         senti_lm = lms[senti_labels[i]]
-        scores.append(np.sign(senti_lm.score(greedy_res) - senti_lm.score(sample_res)))
-        # scores.append(senti_lm.perplexity(greedy_res) - senti_lm.perplexity(sample_res))
+        # scores.append(np.sign(senti_lm.score(greedy_res) - senti_lm.score(sample_res)))
+        scores.append(- senti_lm.score(sample_res))
     scores = np.array(scores)
+    scores = scores - scores.mean()
     rewards = np.repeat(scores[:, np.newaxis], sample_captions.shape[1], 1)
     return rewards
 
@@ -119,52 +119,34 @@ def get_lm_reward(sample_captions, greedy_captions, senti_labels, sos_token, eos
 
 
 def get_cls_reward(sample_captions, sample_masks, greedy_captions, greedy_masks, senti_labels, sent_senti_cls):
-    training = sent_senti_cls.training
+    batch_size = sample_captions.size(0)
     sample_lens = list(sample_masks.sum(dim=-1).type(torch.int).cpu().numpy())
     # greedy_lens = list(greedy_masks.sum(dim=-1).type(torch.int).cpu().numpy())
-    sent_senti_cls.eval()
     with torch.no_grad():
-        sample_preds, sample_att_weights = sent_senti_cls(sample_captions, sample_lens)
-        sample_preds = sample_preds.softmax(dim=-1)
-        sample_preds = sample_preds.argmax(dim=-1)
-        sample_preds = (sample_preds == senti_labels).type_as(sample_att_weights)
-        sample_preds = sample_preds.unsqueeze(1)
-        sample_scores = sample_preds * sample_att_weights
-        sample_scores = sample_scores.detach().cpu().numpy()
+        sample_preds = sent_senti_cls(sample_captions, sample_lens)
+        # greedy_preds = sent_senti_cls(greedy_captions, greedy_lens)
 
-        # greedy_preds, greedy_att_weights = sent_senti_cls(greedy_captions, greedy_lens)
-        # greedy_preds = greedy_preds.softmax(dim=-1)
-        # greedy_preds = greedy_preds.argmax(dim=-1)
-        # greedy_preds = (greedy_preds == senti_labels).type_as(greedy_att_weights)
-        # greedy_preds = greedy_preds.unsqueeze(1)
-        # greedy_scores = greedy_preds * greedy_att_weights
-        # greedy_scores = greedy_scores.detach().cpu().numpy()
-    sent_senti_cls.train(training)
-
-    max_len = sample_captions.shape[1]
-    sample_scores = np.pad(sample_scores, ((0, 0), (0, max_len-sample_scores.shape[1])))
-    # greedy_scores = greedy_scores[:, :max_len]
-    # greedy_scores = np.pad(greedy_scores, ((0, 0), (0, max_len - greedy_scores.shape[1])))
-
-    # rewards = sample_scores - greedy_scores
-    # rewards = sample_scores - sample_scores.mean(-1).reshape(sample_scores.shape[0], 1)
-    rewards = sample_scores
+    scores = []
+    for i in range(batch_size):
+        senti_id = senti_labels[i]
+        # scores.append(float(sample_preds[i][senti_id] - greedy_preds[i][senti_id]))
+        scores.append(float(sample_preds[i][senti_id]))
+    scores = np.array(scores)
+    scores = scores - scores.mean()
+    rewards = np.repeat(scores[:, np.newaxis], sample_captions.shape[1], 1)
     return rewards
 
 
-def get_senti_words_reward(sample_captions, senti_labels, sentiment_words):
+def get_senti_words_reward(sample_captions, senti_words):
     batch_size = sample_captions.size(0)
     sample_captions = sample_captions.cpu().numpy()
+    senti_words = senti_words.cpu().numpy()
     rewards = np.zeros(sample_captions.shape, dtype=float)
-    accur_w = defaultdict(set)
     for i in range(batch_size):
-        senti_id = int(senti_labels[i])
         for j, w in enumerate(sample_captions[i]):
-            if w in sentiment_words[senti_id]:
-                rewards[i, j] = sentiment_words[senti_id][w]
-                accur_w[senti_id].add(w)
-
-    return rewards, accur_w
+            if w in senti_words[i]:
+                rewards[i, j] = 1
+    return rewards
 
 
 class RewardCriterion(nn.Module):

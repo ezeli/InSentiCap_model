@@ -16,29 +16,48 @@ class SentenceSentimentClassifier(nn.Module):
 
         rnn_bidirectional = False
         self.rnn = nn.LSTM(settings['word_emb_dim'], settings['rnn_hid_dim'], bidirectional=rnn_bidirectional)
-        self.amp = nn.Sequential(
-            nn.ReLU(),
-            nn.AdaptiveMaxPool1d(1),
-            nn.Dropout(settings['dropout_p'])
-        )
-        num_senti = len(sentiment_categories)
+        self.drop = nn.Dropout(settings['dropout_p'])
         if rnn_bidirectional:
-            self.classifier = nn.Linear(2*settings['rnn_hid_dim'], num_senti)
+            rnn_hid_dim = 2*settings['rnn_hid_dim']
         else:
-            self.classifier = nn.Linear(settings['rnn_hid_dim'], num_senti)
+            rnn_hid_dim = settings['rnn_hid_dim']
+        self.excitation = nn.Sequential(
+            nn.Linear(rnn_hid_dim, rnn_hid_dim),
+            nn.ReLU(),
+            nn.Linear(rnn_hid_dim, rnn_hid_dim),
+            nn.Sigmoid(),
+        )
+        self.squeeze = nn.AdaptiveAvgPool1d(1)
+        self.sent_senti_cls = nn.Sequential(
+            nn.Linear(rnn_hid_dim, rnn_hid_dim),
+            nn.ReLU(),
+            nn.Dropout(settings['dropout_p']),
+            nn.Linear(rnn_hid_dim, len(sentiment_categories)),
+        )
 
     def forward(self, seqs, lengths):
         seqs = self.word_embed(seqs)  # [bs, max_seq_len, word_dim]
         seqs = pack_padded_sequence(seqs, lengths, batch_first=True, enforce_sorted=False)
         out, _ = self.rnn(seqs)
         out = pad_packed_sequence(out, batch_first=True)[0]  # [bs, seq_len, rnn_hid]
-        out = self.amp(out.permute(0, 2, 1)).view(out.size(0), -1)  # [bs, rnn_hid]
-        pred = self.classifier(out)  # [bs, num_senti]
-        return pred
+        out = self.drop(out)
+
+        excitation_res = self.excitation(out)  # [bs, max_len, rnn_hid]
+        # excitation_res = self.drop(excitation_res)
+        excitation_res = pad_packed_sequence(
+            pack_padded_sequence(excitation_res, lengths, batch_first=True, enforce_sorted=False),
+            batch_first=True)[0]
+        squeeze_res = self.squeeze(excitation_res).permute(0, 2, 1)  # [bs, 1, max_len]
+        # squeeze_res = squeeze_res.masked_fill(squeeze_res == 0, -1e10)
+        # squeeze_res = squeeze_res.softmax(dim=-1)
+        sent_feats = squeeze_res.bmm(out).squeeze(dim=1)  # [bs, rnn_hid]
+        pred = self.sent_senti_cls(sent_feats)  # [bs, 3]
+
+        return pred, squeeze_res.squeeze(dim=1)
 
     def sample(self, seqs, lengths):
         self.eval()
-        pred = self.forward(seqs, lengths)
+        pred, att_weights = self.forward(seqs, lengths)
         result = []
         result_w = []
         for p in pred:
@@ -46,7 +65,7 @@ class SentenceSentimentClassifier(nn.Module):
             result.append(res)
             result_w.append(self.sentiment_categories[res])
 
-        return result, result_w
+        return result, result_w, att_weights
 
     def get_optim_and_crit(self, lr, weight_decay=0):
         return torch.optim.Adam(self.parameters(), lr=lr, weight_decay=weight_decay), \
