@@ -70,7 +70,6 @@ def get_self_critical_reward(sample_captions, greedy_captions, fns, ground_truth
             caps.append(_array_to_str(cap, sos_token, eos_token))
         gts[fn] = caps
     all_result = sample_result + greedy_result
-    _, scores = scorer.compute_score(gts, all_result)
     if isinstance(scorer, CiderD):
         _, scores = scorer.compute_score(gts, all_result)
     elif isinstance(scorer, Bleu):

@@ -247,11 +247,9 @@ def train():
 
         with torch.no_grad():
             torch.cuda.empty_cache()
+            print('----------val')
             fact_val_loss = model((fact_val_data,), data_type='fact', training=False)
             print('fact_val_loss:', dict(fact_val_loss))
-            print('----------val')
-            senti_val_loss = model((senti_val_data,), data_type='senti', training=False)
-            print('senti_val_loss:', dict(senti_val_loss))
 
             # test
             results = {'fact': defaultdict(list), 'senti': defaultdict(list)}
@@ -325,8 +323,8 @@ def train():
                 'corpus_type': corpus_type,
             }
             checkpoint_path = os.path.join(
-                checkpoint, 'model_%d_%.4f_%.4f_%s.pth' % (
-                    epoch, senti_val_loss['all_rewards'], fact_val_loss['all_rewards'], time.strftime('%m%d-%H%M')))
+                checkpoint, 'model_%d_%s.pth' % (
+                    epoch, time.strftime('%m%d-%H%M')))
             torch.save(chkpoint, checkpoint_path)
 
 
