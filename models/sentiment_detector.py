@@ -50,7 +50,7 @@ class SentimentDetector(nn.Module):
         output, senti_features = self.forward(features)
         output = output.softmax(dim=-1)
         scores, senti_labels = output.max(dim=-1)  # bz
-        replace_idx = (scores < senti_threshold).nonzero().view(-1)
+        replace_idx = (scores < senti_threshold).nonzero(as_tuple=False).view(-1)
         senti_labels.index_copy_(0, replace_idx, senti_labels.new_zeros(len(replace_idx)).fill_(self.neu_idx))
 
         sentiments = []

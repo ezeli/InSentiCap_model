@@ -49,7 +49,7 @@ for THRESHOLD in range(11):
         labels = labels.to(opt.device)
         with torch.no_grad():
             preds, _, _, scores = model.sample(att_feats)
-        replace_idx = (scores < THRESHOLD).nonzero().view(-1)
+        replace_idx = (scores < THRESHOLD).nonzero(as_tuple=False).view(-1)
         preds.index_copy_(0, replace_idx, preds.new_zeros(len(replace_idx)).fill_(neu_idx))
         num = int(preds.size(0))
         cor_num = int(sum(preds == labels))
@@ -70,7 +70,7 @@ for THRESHOLD in range(10):
         labels = labels.to(opt.device)
         with torch.no_grad():
             preds, _, _, scores = model.sample(att_feats)
-        replace_idx = (scores < THRESHOLD).nonzero().view(-1)
+        replace_idx = (scores < THRESHOLD).nonzero(as_tuple=False).view(-1)
         preds.index_copy_(0, replace_idx, preds.new_zeros(len(replace_idx)).fill_(neu_idx))
         for idx in [0, 1, 2]:
             all_num[idx] += int(sum(preds == idx))

@@ -136,7 +136,7 @@ def train():
         print('train_loss: %.4f, val_loss: %.4f, test_loss: %.4f, '
               'precision: %.4f, recall: %.4f, last_score: %.4f' %
               (train_loss, val_loss, test_loss, pre, recall, last_score))
-        if epoch in [0, 1, 2, 5, 7, 9] or epoch > 10:
+        if epoch > -1:
             chkpoint = {
                 'epoch': epoch,
                 'model': cpt_detector.state_dict(),

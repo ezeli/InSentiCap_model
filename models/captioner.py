@@ -222,7 +222,7 @@ class Captioner(nn.Module):
                 if sample_mask.sum() == 0:
                     it = captions[:, i].clone()  # bs
                 else:
-                    sample_ind = sample_mask.nonzero().view(-1)
+                    sample_ind = sample_mask.nonzero(as_tuple=False).view(-1)
                     it = captions[:, i].clone()  # bs
                     prob_prev = outputs[i - 1].detach().exp()  # bs*vocab_size, fetch prev distribution
                     it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
@@ -269,7 +269,7 @@ class Captioner(nn.Module):
                 if sample_mask.sum() == 0:
                     it = senti_captions[:, i].clone()  # bs
                 else:
-                    sample_ind = sample_mask.nonzero().view(-1)
+                    sample_ind = sample_mask.nonzero(as_tuple=False).view(-1)
                     it = senti_captions[:, i].clone()  # bs
                     prob_prev = outputs[i - 1].detach().exp()  # bs*vocab_size, fetch prev distribution
                     it.index_copy_(0, sample_ind, torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
