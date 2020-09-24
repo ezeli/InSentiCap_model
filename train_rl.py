@@ -9,13 +9,10 @@ import pdb
 import traceback
 from bdb import BdbQuit
 import torch
-import kenlm
-import pickle
 import random
 
 from opts import parse_opt
 from models.decoder import Detector
-from models.sent_senti_cls import SentenceSentimentClassifier
 from dataloader import get_rl_fact_dataloader, get_rl_senti_dataloader, get_senti_corpus_with_sentis_dataloader
 
 
