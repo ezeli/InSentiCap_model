@@ -78,7 +78,7 @@ for THRESHOLD in range(10):
         all_cor_num[label] += int(sum(preds == label))
     for senti_id in all_num:
         senti = sentiment_categories[senti_id]
-        print('%s precision: %s' % (senti, all_cor_num[senti_id] / all_num[senti_id]))
+        print('%s precision: %s' % (senti, all_cor_num[senti_id] / (all_num[senti_id] + 1e-9)))
     print('all precision:', sum(all_cor_num.values()) / sum(all_num.values()))
     for senti_id in all_num:
         senti = sentiment_categories[senti_id]

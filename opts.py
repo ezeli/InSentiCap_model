@@ -43,7 +43,7 @@ def parse_opt():
     parser.add_argument('--rl_bs', type=int, default=40)
     parser.add_argument('--rl_num_works', type=int, default=2)
     parser.add_argument('--rl_resume', type=str, default='')
-    parser.add_argument('--rl_senti_resume', type=str, default='checkpoint/sentiment/model-6.pth')
+    parser.add_argument('--rl_senti_resume', type=str, default='checkpoint/sentiment/model-10.pth')
     parser.add_argument('--rl_epochs', type=int, default=40)
     parser.add_argument('--rl_fact_times', type=int, default=1)
     parser.add_argument('--rl_senti_times', type=int, default=0)
