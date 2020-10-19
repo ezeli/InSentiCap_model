@@ -430,13 +430,14 @@ def get_lm_sents():
         lm_dir = os.path.join(opt.captions_dir, dataset_nm, corpus_type, 'lm')
         fns = os.listdir(lm_dir)
         for fn in fns:
-            txt_file = os.path.join(lm_dir, fn)
-            count_file = os.path.join(lm_dir, '%s.count' % fn.split('.')[0])
-            lm_file = os.path.join(lm_dir, '%s.sri' % fn.split('.')[0])
-            out = os.popen(count_cmd % (txt_file, count_file)).read()
-            print(out)
-            out = os.popen(lm_cmd % (count_file, lm_file)).read()
-            print(out)
+            if fn.endswith('_w.txt'):
+                txt_file = os.path.join(lm_dir, fn)
+                count_file = os.path.join(lm_dir, '%s.count' % fn.split('.')[0])
+                lm_file = os.path.join(lm_dir, '%s.sri' % fn.split('.')[0])
+                out = os.popen(count_cmd % (txt_file, count_file)).read()
+                print(out)
+                out = os.popen(lm_cmd % (count_file, lm_file)).read()
+                print(out)
 
     # for kenlm
     kenlm_cmd = "lmplz -o 3 <%s >%s"
