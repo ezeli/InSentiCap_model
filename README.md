@@ -1,5 +1,16 @@
 # InSentiCap_model
-A pytorch implementation of our paper [Image Captioning with Inherent Sentiment (ICME 2021 Oral)]().
+A pytorch implementation of our paper [Image Captioning with Inherent Sentiment (ICME 2021 Oral)](./method_figs/Image%20Captioning%20with%20Inherent%20Sentiment.pdf).
+
+### Citation
+```
+@inproceedings{li2021image,
+  title={Image Captioning with Inherent Sentiment},
+  author={Li, Tong and Hu, Yunhui and Wu, Xinxiao},
+  booktitle={2021 IEEE International Conference on Multimedia and Expo (ICME)},
+  year={2021},
+  organization={IEEE}
+}
+```
 
 ## Environment
  - Python 3.7
