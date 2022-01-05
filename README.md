@@ -35,6 +35,3 @@ A pytorch implementation of our paper [Image Captioning with Inherent Sentiment 
 |negative|59.1|24.3|19.4|53.3|12.3|95.5|
 |neutral|73.5|41.2|24.7|97.5|8.4|98.9|
 
-### Examples
-
-![Examples](./method_figs/Examples.png)
