@@ -27,7 +27,6 @@ def extract_imgs_feat():
 
     imgs = os.listdir(opt.imgs_dir)
     imgs.sort()
-    imgs = imgs[4220:]
 
     if not os.path.exists(opt.feats_dir):
         os.makedirs(opt.feats_dir)
